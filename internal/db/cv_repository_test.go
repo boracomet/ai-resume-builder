@@ -58,6 +58,47 @@ func TestCVRepositoryCopyFrom(t *testing.T) {
 	}
 }
 
+func TestEnsureExampleProfile(t *testing.T) {
+	conn, err := Open(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { conn.Close() })
+
+	repo := NewCVRepository(conn)
+
+	if err := repo.EnsureExampleProfile(); err != nil {
+		t.Fatalf("EnsureExampleProfile() error = %v", err)
+	}
+
+	count, err := repo.Count()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("expected 1 profile after seed, got %d", count)
+	}
+
+	profile, err := repo.GetByID(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if profile == nil || profile.Name != "Full Stack Developer" {
+		t.Fatalf("unexpected seeded profile: %+v", profile)
+	}
+
+	if err := repo.EnsureExampleProfile(); err != nil {
+		t.Fatalf("EnsureExampleProfile() second call error = %v", err)
+	}
+	count, err = repo.Count()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("expected seed to be idempotent, got %d profiles", count)
+	}
+}
+
 func TestSeedProfileExample(t *testing.T) {
 	profile := SeedProfile()
 	if profile == nil {
@@ -108,5 +149,43 @@ func TestCVRepositoryImportProfilesMerge(t *testing.T) {
 	}
 	if count != 2 {
 		t.Fatalf("expected 2 profiles after merge import, got %d", count)
+	}
+}
+
+func TestCVRepositoryResetToExample(t *testing.T) {
+	conn, err := Open(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { conn.Close() })
+
+	repo := NewCVRepository(conn)
+
+	first := models.CVProfile{Name: "Profil 1", Language: "tr"}
+	first.Normalize()
+	if err := repo.Create(&first); err != nil {
+		t.Fatal(err)
+	}
+
+	second := models.CVProfile{Name: "Profil 2", Language: "en"}
+	second.Normalize()
+	if err := repo.Create(&second); err != nil {
+		t.Fatal(err)
+	}
+
+	profile, err := repo.ResetToExample()
+	if err != nil {
+		t.Fatalf("ResetToExample() error = %v", err)
+	}
+	if profile == nil || profile.Name != "Full Stack Developer" {
+		t.Fatalf("unexpected reset profile: %+v", profile)
+	}
+
+	count, err := repo.Count()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("expected 1 profile after reset, got %d", count)
 	}
 }

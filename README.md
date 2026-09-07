@@ -11,10 +11,11 @@
 
 Build professional, ATS-friendly resumes in your browser. Edit with a split-panel UI, switch between Turkish and English content, chat with an AI assistant, translate profiles, import legacy PDFs via OCR, and export polished PDFs — all self-hosted.
 
-> **Demo profile:** On first launch, a **Full Stack Developer** sample profile (TR + EN) is seeded so you can explore features immediately. Personal details are demo placeholders; phone is left empty.
+![AI Resume Builder — split-panel editor with live preview and AI assistant](docs/screenshots/editor-light.png)
 
-<!-- Screenshots: add images to docs/screenshots/ and uncomment -->
-<!-- ![Editor](docs/screenshots/editor-light.png) -->
+*Navigate CV sections in the sidebar, chat with the AI assistant to generate and refine content, and watch your resume update in real time in the live preview — all in one screen.*
+
+> **Demo profile:** On first launch, a **Full Stack Developer** sample profile (TR + EN) is seeded so you can explore features immediately. Personal details are demo placeholders; phone is left empty.
 
 ## Features
 
@@ -178,7 +179,11 @@ API keys can also be entered in the editor UI; browser `localStorage` values tak
 
 ## Screenshots
 
-See [`docs/screenshots/`](docs/screenshots/) for README images. Add captures of the editor, AI chat, and PDF preview there.
+| Image | Description |
+|-------|-------------|
+| [`editor-light.png`](docs/screenshots/editor-light.png) | Split-panel editor with AI assistant and live preview (light theme) |
+
+Additional captures (dark theme, PDF preview) can be added under [`docs/screenshots/`](docs/screenshots/).
 
 ## Development
 

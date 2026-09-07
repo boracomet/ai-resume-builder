@@ -39,29 +39,42 @@ func TranslateProfileWithOpenAI(profile *models.CVProfile, source, target, apiKe
 	return totalUsage, totalCost, err
 }
 
-func TranslateProfileWith(profile *models.CVProfile, source, target string, translateFn TranslateFn) error {
+func TranslateContent(profile *models.CVProfile, source, target string, translateFn TranslateFn) (models.LocalizedContent, error) {
 	profile.Normalize()
 
 	sourceContent := profile.ContentForLang(source)
 	if sourceContent.IsEmpty() {
-		profile.Language = target
-		profile.NormalizeLanguage()
-		return nil
+		return models.LocalizedContent{}, nil
 	}
 
-	translated, err := translateContentWith(sourceContent, source, target, translateFn)
+	return translateContentWith(sourceContent, source, target, translateFn)
+}
+
+func ApplyTranslatedContent(profile *models.CVProfile, target string, translated models.LocalizedContent) {
+	target = NormalizeLangCode(target)
+	profile.SetContentForLang(target, translated)
+	profile.Language = models.NormalizeLangCode(target)
+	profile.Normalize()
+}
+
+func TranslateProfileWith(profile *models.CVProfile, source, target string, translateFn TranslateFn) error {
+	translated, err := TranslateContent(profile, source, target, translateFn)
 	if err != nil {
 		return err
 	}
 
-	if target == "en" {
-		profile.ContentEN = translated
-	} else {
-		profile.ContentTR = translated
+	sourceContent := profile.ContentForLang(source)
+	if sourceContent.IsEmpty() {
+		if StorageSupported(target) {
+			profile.Language = NormalizeLangCode(target)
+			profile.NormalizeLanguage()
+		}
+		return nil
 	}
 
-	profile.Language = target
-	profile.NormalizeLanguage()
+	if StorageSupported(target) {
+		ApplyTranslatedContent(profile, target, translated)
+	}
 	return nil
 }
 

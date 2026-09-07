@@ -31,6 +31,7 @@ type aiChatRequest struct {
 	Messages          []ai.Message `json:"messages"`
 	ProfileID         *int64       `json:"profileId"`
 	Language          string       `json:"language"`
+	AppLanguage       string       `json:"appLanguage"`
 	TranslateProvider string       `json:"translateProvider"`
 }
 
@@ -148,13 +149,21 @@ func (h *AIHandler) Chat(c *gin.Context) {
 		profile = loaded
 	}
 
+	appLang := models.NormalizeLangCode(req.AppLanguage)
+	if appLang == "" {
+		appLang = models.NormalizeLangCode(req.Language)
+	}
+	if appLang == "" {
+		appLang = "tr"
+	}
+
 	messages := []ai.Message{
-		{Role: "system", Content: ai.SystemPrompt},
+		{Role: "system", Content: ai.BuildSystemPrompt(appLang)},
 	}
 	if profile != nil {
 		messages = append(messages, ai.Message{
 			Role:    "system",
-			Content: ai.BuildProfileContext(profile),
+			Content: ai.BuildProfileContext(profile, appLang),
 		})
 	}
 	messages = append(messages, req.Messages...)
@@ -220,19 +229,15 @@ func (h *AIHandler) Apply(c *gin.Context) {
 
 	if action == "create_profile" {
 		profile := models.CVProfile{
-			Name:     strings.TrimSpace(req.ProfileName),
-			Language: language,
+			Name:      strings.TrimSpace(req.ProfileName),
+			Language:  language,
+			ContentTR: models.EmptyLocalizedContent(),
+			ContentEN: models.EmptyLocalizedContent(),
 		}
 		if profile.Name == "" {
 			profile.Name = "AI CV"
 		}
-		if language == "en" {
-			profile.ContentEN = *req.Content
-			profile.ContentTR = models.EmptyLocalizedContent()
-		} else {
-			profile.ContentTR = *req.Content
-			profile.ContentEN = models.EmptyLocalizedContent()
-		}
+		profile.SetContentForLang(language, *req.Content)
 		profile.Normalize()
 
 		if err := h.repo.Create(&profile); err != nil {
@@ -262,11 +267,8 @@ func (h *AIHandler) Apply(c *gin.Context) {
 		profile.Name = name
 	}
 	profile.Language = language
-	if language == "en" {
-		profile.ContentEN = mergeLocalizedContent(profile.ContentEN, *req.Content)
-	} else {
-		profile.ContentTR = mergeLocalizedContent(profile.ContentTR, *req.Content)
-	}
+	existing := profile.ContentForLang(language)
+	profile.SetContentForLang(language, mergeLocalizedContent(*existing, *req.Content))
 	profile.Normalize()
 
 	if err := h.repo.Update(profile); err != nil {

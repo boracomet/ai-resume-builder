@@ -1,4 +1,6 @@
-const t = (key, params) => window.I18n?.t(key, params) ?? key;
+function t(key, params) {
+  return window.I18n?.t(key, params) ?? key;
+}
 
 const API_KEY_CONFIG = [
   {
@@ -32,11 +34,12 @@ const state = {
   currentId: null,
   previewTimer: null,
   envSettings: {},
-  activeSection: "general",
+  activeSection: "profile-settings",
 };
 
 const SECTION_IDS = [
-  "general",
+  "profile-settings",
+  "app-settings",
   "personal",
   "summary",
   "experience",
@@ -44,6 +47,7 @@ const SECTION_IDS = [
   "projects",
   "skills",
   "photo",
+  "data-backup",
   "ai-assistant",
 ];
 
@@ -70,6 +74,8 @@ const els = {
   previewFrame: document.getElementById("previewFrame"),
   cvLanguage: document.getElementById("cvLanguage"),
   languageEmptyHint: document.getElementById("languageEmptyHint"),
+  translateControl: document.getElementById("translateControl"),
+  translateTargetSelect: document.getElementById("translateTargetSelect"),
   translateBtn: document.getElementById("translateBtn"),
   translateToTrBtn: document.getElementById("translateToTrBtn"),
   experiencesList: document.getElementById("experiencesList"),
@@ -80,6 +86,7 @@ const els = {
   exportProfileBtn: document.getElementById("exportProfileBtn"),
   exportAllBtn: document.getElementById("exportAllBtn"),
   importProfileInput: document.getElementById("importProfileInput"),
+  resetProfilesBtn: document.getElementById("resetProfilesBtn"),
   editorSidebar: document.querySelector(".editor-sidebar"),
   formSections: document.querySelectorAll(".form-section[data-section-id]"),
 };
@@ -144,6 +151,7 @@ function emptyProfile() {
     },
     contentTR: emptyLocalizedContent(),
     contentEN: emptyLocalizedContent(),
+    contentLanguages: {},
     photoBase64: "",
     photoSize: 96,
     photoBorderWidth: 2,
@@ -157,20 +165,86 @@ const PHOTO_DEFAULTS = {
   borderColor: "#2563eb",
 };
 
-function normalizeLanguage(profile) {
-  profile.language = profile.language === "en" ? "en" : "tr";
+function normalizeProfileLang(lang) {
+  const normalized = String(lang || "").trim().toLowerCase();
+  if (normalized === "en") return "en";
+  if (normalized.length === 2 && /^[a-z]{2}$/.test(normalized)) {
+    return normalized;
+  }
+  return "tr";
 }
 
-function activeContentKey(language) {
-  return language === "en" ? "contentEN" : "contentTR";
+function normalizeLanguage(profile) {
+  profile.language = normalizeProfileLang(profile.language);
+}
+
+function getEditingLanguageOptions() {
+  const base = ["tr", "en"];
+  const extras = (window.I18n?.getTargetTranslateLangs?.() ?? []).filter((code) => !base.includes(code));
+  const options = [...base, ...extras];
+  const current = normalizeProfileLang(state.profile?.language);
+  if (!options.includes(current) && current !== "tr" && current !== "en") {
+    options.push(current);
+  }
+  return options;
+}
+
+function getEditingLanguageLabel(code) {
+  if (code === "tr") return t("langTurkish");
+  if (code === "en") return t("langEnglish");
+  return window.I18n?.getLanguageDisplayName?.(code) || code;
+}
+
+function renderEditingLanguageOptions() {
+  if (!els.cvLanguage) return;
+
+  const options = getEditingLanguageOptions();
+  const current = normalizeProfileLang(state.profile?.language || els.cvLanguage.value);
+  const selected = options.includes(current) ? current : "tr";
+
+  els.cvLanguage.innerHTML = options
+    .map((code) => `<option value="${code}">${getEditingLanguageLabel(code)}</option>`)
+    .join("");
+  els.cvLanguage.value = selected;
+
+  if (state.profile && !options.includes(normalizeProfileLang(state.profile.language))) {
+    state.profile.language = selected;
+  }
+}
+
+function getContentForLang(profile, lang) {
+  const normalized = normalizeProfileLang(lang);
+  if (normalized === "en") {
+    if (!profile.contentEN) profile.contentEN = emptyLocalizedContent();
+    return profile.contentEN;
+  }
+  if (normalized === "tr") {
+    if (!profile.contentTR) profile.contentTR = emptyLocalizedContent();
+    return profile.contentTR;
+  }
+  if (!profile.contentLanguages) profile.contentLanguages = {};
+  if (!profile.contentLanguages[normalized]) {
+    profile.contentLanguages[normalized] = emptyLocalizedContent();
+  }
+  return profile.contentLanguages[normalized];
+}
+
+function setContentForLang(profile, lang, content) {
+  const normalized = normalizeProfileLang(lang);
+  if (normalized === "en") {
+    profile.contentEN = content;
+    return;
+  }
+  if (normalized === "tr") {
+    profile.contentTR = content;
+    return;
+  }
+  if (!profile.contentLanguages) profile.contentLanguages = {};
+  profile.contentLanguages[normalized] = content;
 }
 
 function getActiveContent(profile = state.profile) {
-  const key = activeContentKey(profile.language);
-  if (!profile[key]) {
-    profile[key] = emptyLocalizedContent();
-  }
-  return profile[key];
+  return getContentForLang(profile, profile.language);
 }
 
 function isContentEmpty(content) {
@@ -237,6 +311,22 @@ function ensureBilingualStructure(profile) {
       }
     });
   });
+
+  if (profile.contentLanguages) {
+    Object.keys(profile.contentLanguages).forEach((lang) => {
+      const content = getContentForLang(profile, lang);
+      content.experiences = content.experiences || [];
+      content.education = content.education || [];
+      content.projects = content.projects || [];
+      content.skillGroups = content.skillGroups || [];
+      content.education.forEach((edu) => {
+        if (!edu.institution && edu.school) {
+          edu.institution = edu.school;
+          delete edu.school;
+        }
+      });
+    });
+  }
 }
 
 function normalizeProfile(profile) {
@@ -452,25 +542,59 @@ function renderPhotoSettings() {
   applyPhotoPreviewStyles();
 }
 
+function refreshTranslateUI() {
+  const lang = normalizeProfileLang(state.profile?.language);
+  const targets = window.I18n?.getTargetTranslateLangs?.() ?? [];
+  const targetLang = window.I18n?.getTargetTranslateLang?.() ?? null;
+  const showSelect = targets.length > 1;
+  const showTranslate = Boolean(targetLang) && lang !== targetLang;
+  const showControl = targets.length > 0 && (showSelect || showTranslate);
+  const targetName = window.I18n?.getLanguageDisplayName?.(targetLang) || targetLang;
+  const label = t("translateToLang", { lang: targetName });
+
+  if (els.translateTargetSelect) {
+    els.translateTargetSelect.classList.toggle("hidden", !showSelect);
+    if (showSelect) {
+      els.translateTargetSelect.setAttribute("aria-label", t("targetTranslateLang"));
+      els.translateTargetSelect.innerHTML = targets
+        .map((code) => {
+          const name = window.I18n?.getLanguageDisplayName?.(code) || code;
+          return `<option value="${code}">${name}</option>`;
+        })
+        .join("");
+      if (targetLang) {
+        els.translateTargetSelect.value = targetLang;
+      }
+    }
+  }
+
+  if (els.translateControl) {
+    els.translateControl.classList.toggle("hidden", !showControl);
+  }
+  if (els.translateBtn) {
+    els.translateBtn.classList.toggle("hidden", !showTranslate);
+    if (showTranslate && !els.translateBtn.disabled) {
+      els.translateBtn.textContent = label;
+    }
+  }
+  if (els.translateToTrBtn) {
+    els.translateToTrBtn.classList.add("hidden");
+  }
+}
+
 function updateLanguageUI() {
-  const lang = state.profile.language === "en" ? "en" : "tr";
+  renderEditingLanguageOptions();
+  const lang = normalizeProfileLang(state.profile.language);
   if (els.cvLanguage) {
     els.cvLanguage.value = lang;
   }
 
-  const enEmpty = isContentEmpty(state.profile.contentEN);
+  const activeEmpty = isContentEmpty(getContentForLang(state.profile, lang));
   if (els.languageEmptyHint) {
-    els.languageEmptyHint.classList.toggle("hidden", !(lang === "en" && enEmpty));
+    els.languageEmptyHint.classList.toggle("hidden", !(lang !== "tr" && activeEmpty));
   }
 
-  if (els.translateBtn) {
-    els.translateBtn.classList.toggle("hidden", lang === "en");
-    els.translateBtn.textContent = t("translateToEn");
-  }
-  if (els.translateToTrBtn) {
-    els.translateToTrBtn.classList.toggle("hidden", lang === "tr");
-    els.translateToTrBtn.textContent = t("translateToTr");
-  }
+  refreshTranslateUI();
 }
 
 function renderStaticFields() {
@@ -844,13 +968,13 @@ function renderForm() {
 }
 
 function collectProfileFromForm(options = {}) {
-  const editingLang = options.language ?? (els.cvLanguage?.value === "en" ? "en" : "tr");
-  const content = state.profile[activeContentKey(editingLang)] || emptyLocalizedContent();
-  state.profile[activeContentKey(editingLang)] = content;
+  const editingLang = normalizeProfileLang(options.language ?? els.cvLanguage?.value ?? state.profile.language);
+  const content = getContentForLang(state.profile, editingLang);
+  setContentForLang(state.profile, editingLang, content);
 
   state.profile.name = els.profileName.value.trim() || t("newCv");
   if (!options.skipLanguageUpdate && els.cvLanguage) {
-    state.profile.language = els.cvLanguage.value === "en" ? "en" : "tr";
+    state.profile.language = normalizeProfileLang(els.cvLanguage.value);
   }
 
   document.querySelectorAll("[data-field]").forEach((input) => {
@@ -870,8 +994,8 @@ function collectProfileFromForm(options = {}) {
 }
 
 function switchEditingLanguage(nextLang) {
-  const currentLang = state.profile.language === "en" ? "en" : "tr";
-  const normalizedNext = nextLang === "en" ? "en" : "tr";
+  const currentLang = normalizeProfileLang(state.profile.language);
+  const normalizedNext = normalizeProfileLang(nextLang);
   if (currentLang === normalizedNext) {
     return;
   }
@@ -901,21 +1025,20 @@ function schedulePreview() {
 }
 
 async function loadProfiles(selectId) {
-  const profiles = await API.listProfiles();
+  let profiles = await API.listProfiles();
   renderProfileSelect(profiles);
 
   if (profiles.length === 0) {
-    const created = await API.createProfile(emptyProfile());
-    state.currentId = created.id;
-    state.profile = created;
-    normalizeProfile(state.profile);
-  } else {
-    const targetId = selectId || state.currentId || profiles[0].id;
-    const profile = await API.getProfile(targetId);
-    state.currentId = profile.id;
-    state.profile = profile;
-    normalizeProfile(state.profile);
+    showToast(t("profilesLoadError"));
+    return;
   }
+
+  const targetId = selectId || state.currentId || profiles[0].id;
+  const exists = profiles.some((profile) => profile.id === targetId);
+  const profile = await API.getProfile(exists ? targetId : profiles[0].id);
+  state.currentId = profile.id;
+  state.profile = profile;
+  normalizeProfile(state.profile);
 
   renderForm();
   await updatePreview();
@@ -982,20 +1105,25 @@ async function deleteCurrentProfile() {
   }
 }
 
-async function translateProfile(targetLang) {
+async function translateProfile() {
   if (!state.currentId) return;
 
+  const targetLang = window.I18n?.getTargetTranslateLang?.();
+  if (!targetLang) return;
+
+  const storageSupported = window.I18n?.isTargetLangStorageSupported?.(targetLang) ?? true;
   collectProfileFromForm();
-  const sourceLang = targetLang === "en" ? "tr" : "en";
-  const sourceContent = state.profile[activeContentKey(sourceLang)];
+  const sourceLang = normalizeProfileLang(state.profile.language);
+  const sourceContent = getContentForLang(state.profile, sourceLang);
   if (isContentEmpty(sourceContent)) {
-    showToast(sourceLang === "tr" ? t("enterTrContent") : t("enterEnContent"));
+    const sourceName = getEditingLanguageLabel(sourceLang);
+    showToast(t("enterLangContent", { lang: sourceName }) || (sourceLang === "tr" ? t("enterTrContent") : t("enterEnContent")));
     return;
   }
 
-  const btn = targetLang === "en" ? els.translateBtn : els.translateToTrBtn;
-  const otherBtn = targetLang === "en" ? els.translateToTrBtn : els.translateBtn;
-  const defaultLabel = targetLang === "en" ? t("translateToEn") : t("translateToTr");
+  const btn = els.translateBtn;
+  const targetName = window.I18n?.getLanguageDisplayName?.(targetLang) || targetLang;
+  const defaultLabel = t("translateToLang", { lang: targetName });
 
   const provider = getTranslateProvider();
   showSection("ai-assistant");
@@ -1006,13 +1134,13 @@ async function translateProfile(targetLang) {
       btn.disabled = true;
       btn.textContent = t("translating");
     }
-    if (otherBtn) otherBtn.disabled = true;
     saveApiKey(API_KEY_CONFIG[0]);
 
     await API.updateProfile(state.currentId, state.profile);
 
     const translated = await API.translateProfile(state.currentId, {
       targetLang,
+      sourceLang,
       apiKey: provider === "openai" ? getOpenAIApiKey() : getGoogleApiKey(),
       provider,
       model: localStorage.getItem("openaiSelectedModel") || "gpt-4o-mini",
@@ -1023,11 +1151,21 @@ async function translateProfile(targetLang) {
       usage: translated.usage,
     });
 
-    state.profile = translated;
-    normalizeProfile(state.profile);
-    renderForm();
-    await updatePreview();
-    showToast(targetLang === "en" ? t("cvTranslatedEn") : t("cvTranslatedTr"));
+    if (storageSupported && translated.storageSupported !== false) {
+      state.profile = translated;
+      normalizeProfile(state.profile);
+      renderForm();
+      await updatePreview();
+      if (targetLang === "en") {
+        showToast(t("cvTranslatedEn"));
+      } else if (targetLang === "tr") {
+        showToast(t("cvTranslatedTr"));
+      } else {
+        showToast(t("cvTranslatedTo", { lang: targetName }));
+      }
+    } else {
+      showToast(t("cvTranslatedStorageWarning"));
+    }
   } catch (error) {
     window.AIChat?.completeTranslateProgress?.(false, 0, error.message);
     showToast(error.message);
@@ -1036,7 +1174,6 @@ async function translateProfile(targetLang) {
       btn.disabled = false;
       btn.textContent = defaultLabel;
     }
-    if (otherBtn) otherBtn.disabled = false;
   }
 }
 
@@ -1074,6 +1211,21 @@ async function exportAllProfilesBackup() {
     await API.exportAllProfiles();
   } catch (error) {
     showToast(t("exportAllError") + (error.message ? `: ${error.message}` : ""));
+  }
+}
+
+async function resetAllProfiles() {
+  if (!window.confirm(t("resetConfirm"))) {
+    return;
+  }
+
+  try {
+    const result = await API.resetAllProfiles();
+    const selectId = result?.profile?.id;
+    await loadProfiles(selectId);
+    showToast(t("resetSuccess"));
+  } catch (error) {
+    showToast(t("resetError") + (error.message ? `: ${error.message}` : ""));
   }
 }
 
@@ -1149,8 +1301,12 @@ function initEventListeners() {
     input.addEventListener("input", () => updateApiKeyStatus(config));
   });
 
-  els.translateBtn?.addEventListener("click", () => translateProfile("en"));
-  els.translateToTrBtn?.addEventListener("click", () => translateProfile("tr"));
+  els.translateTargetSelect?.addEventListener("change", () => {
+    const code = els.translateTargetSelect.value;
+    window.I18n?.setActiveTargetTranslateLang?.(code);
+  });
+
+  els.translateBtn?.addEventListener("click", () => translateProfile());
 
   els.newProfileBtn.addEventListener("click", createNewProfile);
   els.duplicateProfileBtn.addEventListener("click", duplicateCurrentProfile);
@@ -1165,6 +1321,7 @@ function initEventListeners() {
       handleImportBackup(file);
     }
   });
+  els.resetProfilesBtn?.addEventListener("click", resetAllProfiles);
 
   els.profileName.addEventListener("input", schedulePreview);
   document.querySelectorAll("[data-field]").forEach((input) => {
@@ -1270,10 +1427,11 @@ async function onAIChatResult(response) {
   state.profile = profile;
   normalizeProfile(state.profile);
 
-  if (response.language === "en" || response.language === "tr") {
-    state.profile.language = response.language;
+  if (response.language) {
+    state.profile.language = normalizeProfileLang(response.language);
+    renderEditingLanguageOptions();
     if (els.cvLanguage) {
-      els.cvLanguage.value = response.language;
+      els.cvLanguage.value = state.profile.language;
     }
   }
 
@@ -1301,7 +1459,7 @@ async function onAIChatResult(response) {
 
 window.CVEditor = {
   getCurrentProfileId: () => state.currentId,
-  getEditingLanguage: () => (state.profile?.language === "en" ? "en" : "tr"),
+  getEditingLanguage: () => normalizeProfileLang(state.profile?.language),
   getProfile: () => state.profile,
   getOpenAIApiKey,
   isOpenAIConfigured,
@@ -1309,6 +1467,7 @@ window.CVEditor = {
   onProfileUpdated,
   onAIChatResult,
   showSection,
+  refreshTranslateUI,
 };
 
 function onAppLanguageChange() {
@@ -1318,9 +1477,15 @@ function onAppLanguageChange() {
   renderAllLists();
 }
 
+function onTargetTranslateLangsChanged() {
+  renderEditingLanguageOptions();
+  refreshTranslateUI();
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   window.I18n?.initI18n();
   window.I18n?.onLanguageChange(onAppLanguageChange);
+  window.I18n?.onTargetTranslateLangChange?.(() => onTargetTranslateLangsChanged());
   initTheme();
   loadApiKeysFromStorage();
   initSectionNav();
@@ -1328,6 +1493,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     await loadEnvSettings();
     await loadProfiles();
+    refreshTranslateUI();
     window.AIChat?.loadModels?.({ silent: true });
   } catch (error) {
     showToast(error.message);

@@ -558,11 +558,8 @@ func (e *ToolExecutor) updateProfileContent(args map[string]interface{}, ctx *To
 	}
 	profile.Language = language
 
-	if language == "en" {
-		profile.ContentEN = mergeLocalizedContent(profile.ContentEN, content)
-	} else {
-		profile.ContentTR = mergeLocalizedContent(profile.ContentTR, content)
-	}
+	existing := profile.ContentForLang(language)
+	profile.SetContentForLang(language, mergeLocalizedContent(*existing, content))
 	profile.Normalize()
 
 	if err := e.repo.Update(profile); err != nil {
@@ -590,9 +587,9 @@ func (e *ToolExecutor) translateProfile(args map[string]interface{}, ctx *ToolCo
 		return nil, err
 	}
 
-	targetLang := models.NormalizeLangCode(argString(args, "targetLang"))
-	if targetLang != "tr" && targetLang != "en" {
-		return nil, fmt.Errorf("desteklenen hedef diller: tr, en")
+	targetLang := translate.NormalizeLangCode(argString(args, "targetLang"))
+	if !translate.ValidLangCode(targetLang) {
+		return nil, fmt.Errorf("geçersiz hedef dil kodu (ISO 639-1)")
 	}
 
 	profile, err := e.loadProfile(id)
@@ -600,10 +597,7 @@ func (e *ToolExecutor) translateProfile(args map[string]interface{}, ctx *ToolCo
 		return nil, err
 	}
 
-	sourceLang := "tr"
-	if targetLang == "tr" {
-		sourceLang = "en"
-	}
+	sourceLang := translate.ResolveSourceLang(argString(args, "sourceLang"), profile.Language, targetLang)
 
 	provider := strings.ToLower(strings.TrimSpace(ctx.TranslateProvider))
 	if provider == "" {
@@ -662,8 +656,8 @@ func (e *ToolExecutor) translateProfile(args map[string]interface{}, ctx *ToolCo
 
 func (e *ToolExecutor) switchLanguage(args map[string]interface{}, ctx *ToolContext, state *ToolExecutionState) (interface{}, error) {
 	language := models.NormalizeLangCode(argString(args, "language"))
-	if language != "tr" && language != "en" {
-		return nil, fmt.Errorf("desteklenen diller: tr, en")
+	if !models.ValidLangCode(language) {
+		return nil, fmt.Errorf("geçersiz dil kodu (ISO 639-1)")
 	}
 
 	id, err := e.resolveProfileID(args, ctx)

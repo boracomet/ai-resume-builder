@@ -57,14 +57,16 @@
 
       <div class="toolbar__section toolbar__section--center">
         <div class="toolbar__lang">
-          <label class="toolbar__lang-label" for="cvLanguage" data-i18n="editingLanguage">Düzenleme Dili</label>
-          <select id="cvLanguage" class="toolbar-select toolbar-select--compact" data-i18n-aria-label="editingLanguage" aria-label="Düzenleme dili">
-            <option value="tr" data-i18n="langTurkish">Türkçe</option>
-            <option value="en" data-i18n="langEnglish">English</option>
-          </select>
+          <div class="toolbar__lang-row">
+            <label class="toolbar__lang-label" for="cvLanguage" data-i18n="editingLanguage">Düzenleme Dili</label>
+            <select id="cvLanguage" class="toolbar-select toolbar-select--compact" data-i18n-aria-label="editingLanguage" aria-label="Düzenleme dili"></select>
+          </div>
           <span id="languageEmptyHint" class="language-empty-hint hidden" data-i18n="languageEmptyHint" aria-live="polite">İngilizce içerik henüz oluşturulmadı</span>
         </div>
-        <button type="button" id="translateBtn" class="btn btn-outline" data-i18n="translateToEn">İngilizceye Çevir</button>
+        <div class="toolbar__translate" id="translateControl">
+          <select id="translateTargetSelect" class="toolbar-select toolbar-select--compact hidden" aria-label="Hedef çeviri dili"></select>
+          <button type="button" id="translateBtn" class="btn btn-outline hidden">İngilizceye Çevir</button>
+        </div>
         <button type="button" id="translateToTrBtn" class="btn btn-outline hidden" data-i18n="translateToTr">Türkçeye Çevir</button>
       </div>
 
@@ -97,7 +99,8 @@
     <div class="workspace">
       <aside class="editor-panel">
         <nav class="editor-sidebar" data-i18n-aria-label="formSections" aria-label="Form bölümleri">
-          <button type="button" class="editor-nav-item is-active" data-section="general" data-i18n="navGeneral">Genel Ayarlar</button>
+          <button type="button" class="editor-nav-item is-active" data-section="profile-settings" data-i18n="navProfile">Profil</button>
+          <button type="button" class="editor-nav-item" data-section="app-settings" data-i18n="navAppSettings">Uygulama Ayarları</button>
           <button type="button" class="editor-nav-item" data-section="personal" data-i18n="navPersonal">Kişisel Bilgiler</button>
           <button type="button" class="editor-nav-item" data-section="summary" data-i18n="navSummary">Özet</button>
           <button type="button" class="editor-nav-item" data-section="experience" data-i18n="navExperience">Deneyim</button>
@@ -105,35 +108,49 @@
           <button type="button" class="editor-nav-item" data-section="projects" data-i18n="navProjects">Projeler</button>
           <button type="button" class="editor-nav-item" data-section="skills" data-i18n="navSkills">Beceriler</button>
           <button type="button" class="editor-nav-item" data-section="photo" data-i18n="navPhoto">Profil Fotoğrafı</button>
+          <button type="button" class="editor-nav-item" data-section="data-backup" data-i18n="navDataBackup">Veri Yedekleme</button>
           <button type="button" class="editor-nav-item" data-section="ai-assistant" data-i18n="navAI">AI Asistan</button>
         </nav>
 
         <div class="editor-content">
           <form id="cvForm" class="cv-form">
-          <section class="form-section is-active" data-section-id="general">
-            <h2 data-i18n="generalSettings">Genel Ayarlar</h2>
-            <label for="profileName" data-i18n="profileName">Profil Adı</label>
-            <input type="text" id="profileName" name="profileName" data-i18n-placeholder="profileNamePlaceholder" placeholder="Örn: İş Başvurusu">
-            <label for="appLanguage" data-i18n="appLanguage">Uygulama Dili</label>
-            <select id="appLanguage" class="toolbar-select">
-              <option value="tr" data-i18n="langTurkish">Türkçe</option>
-              <option value="en" data-i18n="langEnglish">English</option>
-            </select>
-            <p class="form-hint" data-i18n="appLanguageHint">Editör arayüzünün dilini seçin. CV içeriği dili ayrıca yönetilir.</p>
-            <p class="form-hint" data-i18n="generalSettingsHint">Düzenleme dili ve çeviri seçenekleri üst araç çubuğundan yönetilir.</p>
+          <section class="form-section is-active" data-section-id="profile-settings">
+            <h2 data-i18n="profileSettings">Profil</h2>
+            <div class="form-field">
+              <label for="profileName" data-i18n="profileName">Profil Adı</label>
+              <input type="text" id="profileName" name="profileName" data-i18n-placeholder="profileNamePlaceholder" placeholder="Örn: İş Başvurusu">
+            </div>
+            <p class="form-hint" data-i18n="profileSettingsHint">Seçili CV profilinin adını düzenleyin.</p>
+          </section>
 
-            <div class="form-subsection backup-section">
-              <h3 data-i18n="backupSection">Veri Yedekleme</h3>
-              <p class="form-hint" data-i18n="backupHint">Profillerinizi JSON olarak dışa aktarın veya yedekten geri yükleyin.</p>
-              <div class="backup-actions">
-                <button type="button" id="exportProfileBtn" class="btn btn-outline btn-sm" data-i18n="exportProfile">JSON Dışa Aktar</button>
-                <button type="button" id="exportAllBtn" class="btn btn-outline btn-sm" data-i18n="exportAll">Tümünü Yedekle</button>
-                <label class="btn btn-outline btn-sm backup-import-label">
-                  <span data-i18n="importProfile">JSON İçe Aktar</span>
-                  <input type="file" id="importProfileInput" accept=".json,application/json" hidden>
-                </label>
+          <section class="form-section" data-section-id="app-settings">
+            <h2 data-i18n="appSettings">Uygulama Ayarları</h2>
+            <div class="form-field">
+              <label for="appLanguage" data-i18n="appLanguage">Uygulama Dili</label>
+              <select id="appLanguage">
+                <option value="tr" data-i18n="langTurkish">Türkçe</option>
+                <option value="en" data-i18n="langEnglish">English</option>
+              </select>
+            </div>
+            <p class="form-hint" data-i18n="appLanguageHint">Editör arayüzünün dilini seçin. CV içeriği dili ayrıca yönetilir.</p>
+            <div class="form-field">
+              <label data-i18n="targetTranslateLang">Hedef Çeviri Dili</label>
+              <div id="targetTranslateLangChips" class="lang-chip-list" aria-live="polite"></div>
+              <div class="lang-add-row">
+                <input
+                  type="text"
+                  id="targetTranslateLangSearch"
+                  list="targetTranslateLangList"
+                  autocomplete="off"
+                  data-i18n-placeholder="searchLanguages"
+                  placeholder="Dil ara veya seç..."
+                >
+                <datalist id="targetTranslateLangList"></datalist>
+                <button type="button" id="targetTranslateLangAdd" class="btn btn-outline btn-sm" data-i18n="addLanguage">Ekle</button>
               </div>
             </div>
+            <p class="form-hint" data-i18n="targetTranslateLangHint">Araç çubuğundaki çeviri butonunun hangi dile çevireceğini belirler.</p>
+            <p class="form-hint" data-i18n="generalSettingsHint">Düzenleme dili üst araç çubuğundan yönetilir.</p>
           </section>
 
           <section class="form-section" data-section-id="personal">
@@ -217,6 +234,25 @@
                 <span data-i18n="borderColor">Çerçeve rengi</span>
                 <input type="color" id="photoBorderColor" data-field="photoBorderColor" value="#2563eb">
               </label>
+            </div>
+          </section>
+
+          <section class="form-section" data-section-id="data-backup">
+            <h2 data-i18n="backupSection">Veri Yedekleme</h2>
+            <p class="form-hint" data-i18n="backupHint">Profillerinizi JSON olarak dışa aktarın veya yedekten geri yükleyin.</p>
+            <div class="backup-actions">
+              <button type="button" id="exportProfileBtn" class="btn btn-outline btn-sm" data-i18n="exportProfile">JSON Dışa Aktar</button>
+              <button type="button" id="exportAllBtn" class="btn btn-outline btn-sm" data-i18n="exportAll">Tümünü Yedekle</button>
+              <label class="btn btn-outline btn-sm backup-import-label">
+                <span data-i18n="importProfile">JSON İçe Aktar</span>
+                <input type="file" id="importProfileInput" accept=".json,application/json" hidden>
+              </label>
+            </div>
+
+            <div class="form-subsection reset-section">
+              <h3 data-i18n="resetSection">Verileri Sıfırla</h3>
+              <p class="form-hint" data-i18n="resetHint">Tüm profilleri silip yalnızca örnek Full Stack Developer profilini bırakır.</p>
+              <button type="button" id="resetProfilesBtn" class="btn btn-danger btn-sm" data-i18n="resetButton">Sıfırla</button>
             </div>
           </section>
 
@@ -374,6 +410,7 @@
     </div>
   </div>
 
+  <script src="/static/js/world-languages.js"></script>
   <script src="/static/js/i18n.js"></script>
   <script src="/static/js/api.js"></script>
   <script src="/static/js/editor.js"></script>

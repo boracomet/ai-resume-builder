@@ -1,4 +1,6 @@
-const t = (key, params) => window.I18n?.t(key, params) ?? key;
+function t(key, params) {
+  return window.I18n?.t(key, params) ?? key;
+}
 
 const AI_MODEL_STORAGE_KEY = "openaiSelectedModel";
 const TRANSLATE_PROVIDER_STORAGE_KEY = "translateProvider";
@@ -870,6 +872,7 @@ const AIChat = {
     const chatMessages = this.messages.map((m) => ({ role: m.role, content: m.content }));
     const profileId = window.CVEditor?.getCurrentProfileId?.() || null;
     const language = window.CVEditor?.getEditingLanguage?.() || "tr";
+    const appLanguage = window.I18n?.getAppLanguage?.() || "tr";
     const translateProvider = this.els.translateProvider?.value || localStorage.getItem(TRANSLATE_PROVIDER_STORAGE_KEY) || "google";
 
     this.els.sendBtn.disabled = true;
@@ -884,6 +887,7 @@ const AIChat = {
         messages: chatMessages,
         profileId,
         language,
+        appLanguage,
         translateProvider,
       });
 

@@ -114,6 +114,26 @@ func (h *BackupHandler) Import(c *gin.Context) {
 	})
 }
 
+func (h *BackupHandler) Reset(c *gin.Context) {
+	profile, err := h.repo.ResetToExample()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	profiles, err := h.repo.List()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":  "veriler sıfırlandı",
+		"profile":  profile,
+		"profiles": profiles,
+	})
+}
+
 func newBackupPayload(profiles []models.CVProfile) BackupPayload {
 	exportProfiles := make([]models.CVProfile, len(profiles))
 	for i, p := range profiles {

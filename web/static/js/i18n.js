@@ -1,5 +1,9 @@
 const APP_LANGUAGE_KEY = "appLanguage";
 const APP_SETUP_COMPLETE_KEY = "appSetupComplete";
+const TARGET_TRANSLATE_LANG_KEY = "targetTranslateLang";
+const TARGET_TRANSLATE_LANGS_KEY = "targetTranslateLangs";
+const TARGET_TRANSLATE_LANG_MANUAL_KEY = "targetTranslateLangManual";
+const ACTIVE_TARGET_TRANSLATE_LANG_KEY = "activeTargetTranslateLang";
 
 const translations = {
   tr: {
@@ -25,7 +29,9 @@ const translations = {
     copy: "Kopyala",
 
     // Sidebar nav
-    navGeneral: "Genel Ayarlar",
+    navProfile: "Profil",
+    navAppSettings: "Uygulama Ayarları",
+    navDataBackup: "Veri Yedekleme",
     navPersonal: "Kişisel Bilgiler",
     navSummary: "Özet",
     navExperience: "Deneyim",
@@ -36,13 +42,25 @@ const translations = {
     navAI: "AI Asistan",
     formSections: "Form bölümleri",
 
-    // General settings
-    generalSettings: "Genel Ayarlar",
+    // Profile & app settings
+    profileSettings: "Profil",
+    profileSettingsHint: "Seçili CV profilinin adını düzenleyin.",
+    appSettings: "Uygulama Ayarları",
     profileName: "Profil Adı",
     profileNamePlaceholder: "Örn: İş Başvurusu",
-    generalSettingsHint: "Düzenleme dili ve çeviri seçenekleri üst araç çubuğundan yönetilir.",
+    generalSettingsHint: "Düzenleme dili üst araç çubuğundan yönetilir.",
     appLanguage: "Uygulama Dili",
     appLanguageHint: "Editör arayüzünün dilini seçin. CV içeriği dili ayrıca yönetilir.",
+    targetTranslateLang: "Hedef Çeviri Dili",
+    targetTranslateLangHint: "Araç çubuğundaki çeviri butonunun hangi dile çevireceğini belirler. İlk eklenen dil birincil hedeftir. Birden fazla dil varsa araç çubuğundan aktif hedefi seçebilirsiniz. Eklenen dillerin yanındaki × ile kaldırabilirsiniz; liste boşsa çeviri butonu gizlenir.",
+    addLanguage: "Ekle",
+    searchLanguages: "Dil ara veya seç...",
+    removeLanguage: "Kaldır",
+    languageAlreadyAdded: "Bu dil zaten eklenmiş",
+    languageNotFound: "Dil bulunamadı",
+    translateToLang: "Çevir: {lang}",
+    cvTranslatedTo: "CV {lang} diline çevrildi",
+    cvTranslatedStorageWarning: "Çeviri tamamlandı ancak CV yalnızca Türkçe/İngilizce slotlarını destekler. Sonuç kaydedilmedi.",
     langTurkish: "Türkçe",
     langEnglish: "English",
 
@@ -204,6 +222,7 @@ const translations = {
     newProfileCreated: "Yeni profil oluşturuldu",
     profileDuplicated: "Profil kopyalandı",
     profileDeleted: "Profil silindi",
+    profilesLoadError: "Profiller yüklenemedi. Sayfayı yenileyin.",
     confirmDelete: "Bu profili silmek istediğinize emin misiniz?",
     enterTrContent: "Önce Türkçe içerik girin",
     enterEnContent: "Önce İngilizce içerik girin",
@@ -231,6 +250,12 @@ const translations = {
     exportProfileError: "Profil dışa aktarılamadı",
     exportAllError: "Yedek oluşturulamadı",
     invalidBackupFile: "Geçersiz yedek dosyası",
+    resetSection: "Verileri Sıfırla",
+    resetHint: "Tüm profilleri silip yalnızca örnek Full Stack Developer profilini bırakır.",
+    resetButton: "Sıfırla",
+    resetConfirm: "Tüm profiller silinecek, yalnızca örnek Full Stack Developer profili kalacak. Emin misiniz?",
+    resetSuccess: "Veriler sıfırlandı, örnek profil yüklendi",
+    resetError: "Sıfırlama başarısız",
 
     // First setup
     welcomeTitle: "AI Resume Builder'a hoş geldiniz",
@@ -262,7 +287,9 @@ const translations = {
     close: "Close",
     copy: "Copy",
 
-    navGeneral: "General Settings",
+    navProfile: "Profile",
+    navAppSettings: "Application Settings",
+    navDataBackup: "Data Backup",
     navPersonal: "Personal Information",
     navSummary: "Summary",
     navExperience: "Experience",
@@ -273,12 +300,24 @@ const translations = {
     navAI: "AI Assistant",
     formSections: "Form sections",
 
-    generalSettings: "General Settings",
+    profileSettings: "Profile",
+    profileSettingsHint: "Edit the name of the selected CV profile.",
+    appSettings: "Application Settings",
     profileName: "Profile Name",
     profileNamePlaceholder: "e.g. Job Application",
-    generalSettingsHint: "Editing language and translation options are managed from the top toolbar.",
+    generalSettingsHint: "Editing language is managed from the top toolbar.",
     appLanguage: "App Language",
     appLanguageHint: "Choose the editor interface language. CV content language is managed separately.",
+    targetTranslateLang: "Target Translation Language",
+    targetTranslateLangHint: "Sets which language the toolbar translate button converts your CV into. The first added language is the primary target. When multiple languages are added, pick the active target from the toolbar. Remove languages with the × on each chip; when the list is empty, the translate button is hidden.",
+    addLanguage: "Add",
+    searchLanguages: "Search or select a language...",
+    removeLanguage: "Remove",
+    languageAlreadyAdded: "This language is already added",
+    languageNotFound: "Language not found",
+    translateToLang: "Translate: {lang}",
+    cvTranslatedTo: "CV translated to {lang}",
+    cvTranslatedStorageWarning: "Translation completed, but the CV only supports Turkish/English slots. Result was not saved.",
     langTurkish: "Türkçe",
     langEnglish: "English",
 
@@ -432,6 +471,7 @@ const translations = {
     newProfileCreated: "New profile created",
     profileDuplicated: "Profile duplicated",
     profileDeleted: "Profile deleted",
+    profilesLoadError: "Could not load profiles. Please refresh the page.",
     confirmDelete: "Are you sure you want to delete this profile?",
     enterTrContent: "Enter Turkish content first",
     enterEnContent: "Enter English content first",
@@ -458,6 +498,12 @@ const translations = {
     exportProfileError: "Could not export profile",
     exportAllError: "Could not create backup",
     invalidBackupFile: "Invalid backup file",
+    resetSection: "Reset Data",
+    resetHint: "Deletes all profiles and keeps only the example Full Stack Developer profile.",
+    resetButton: "Reset",
+    resetConfirm: "All profiles will be deleted and only the example Full Stack Developer profile will remain. Are you sure?",
+    resetSuccess: "Data reset; example profile loaded",
+    resetError: "Reset failed",
 
     welcomeTitle: "Welcome to AI Resume Builder",
     welcomeTagline: "ATS-friendly CV, AI assistant, PDF export",
@@ -471,6 +517,229 @@ const translations = {
 
 let currentLang = "tr";
 const languageChangeListeners = [];
+const targetTranslateLangListeners = [];
+
+function getDefaultTargetTranslateLang(appLang) {
+  const lang = appLang === "en" ? "en" : "tr";
+  return lang === "tr" ? "en" : "tr";
+}
+
+function migrateTargetTranslateLangs() {
+  if (localStorage.getItem(TARGET_TRANSLATE_LANGS_KEY)) return;
+
+  const legacy = localStorage.getItem(TARGET_TRANSLATE_LANG_KEY);
+  if (legacy === "tr" || legacy === "en") {
+    localStorage.setItem(TARGET_TRANSLATE_LANGS_KEY, JSON.stringify([legacy]));
+    return;
+  }
+
+  localStorage.setItem(
+    TARGET_TRANSLATE_LANGS_KEY,
+    JSON.stringify([getDefaultTargetTranslateLang(getAppLanguage())])
+  );
+}
+
+function normalizeLangCode(code) {
+  return String(code || "").trim().toLowerCase();
+}
+
+function getLanguageMeta(code) {
+  const normalized = normalizeLangCode(code);
+  return window.WorldLanguages?.byCode?.[normalized] || null;
+}
+
+function getLanguageDisplayName(code) {
+  const meta = getLanguageMeta(code);
+  if (!meta) return code;
+  return currentLang === "en" ? meta.english : meta.native;
+}
+
+function getTargetTranslateLangs() {
+  migrateTargetTranslateLangs();
+  try {
+    const parsed = JSON.parse(localStorage.getItem(TARGET_TRANSLATE_LANGS_KEY) || "[]");
+    if (!Array.isArray(parsed)) return [];
+    const unique = [];
+    parsed.forEach((code) => {
+      const normalized = normalizeLangCode(code);
+      if (normalized.length === 2 && !unique.includes(normalized)) {
+        unique.push(normalized);
+      }
+    });
+    return unique;
+  } catch {
+    return [];
+  }
+}
+
+function syncActiveTargetTranslateLang(langs) {
+  if (!langs.length) {
+    localStorage.removeItem(ACTIVE_TARGET_TRANSLATE_LANG_KEY);
+    return;
+  }
+
+  const stored = normalizeLangCode(localStorage.getItem(ACTIVE_TARGET_TRANSLATE_LANG_KEY));
+  if (!stored || !langs.includes(stored)) {
+    localStorage.setItem(ACTIVE_TARGET_TRANSLATE_LANG_KEY, langs[0]);
+  }
+}
+
+function notifyTargetTranslateLangChange() {
+  const active = getActiveTargetTranslateLang();
+  targetTranslateLangListeners.forEach((fn) => fn(active));
+  window.CVEditor?.refreshTranslateUI?.();
+}
+
+function setTargetTranslateLangs(langs, manual = true) {
+  const unique = [];
+  (langs || []).forEach((code) => {
+    const normalized = normalizeLangCode(code);
+    if (normalized.length === 2 && !unique.includes(normalized)) {
+      unique.push(normalized);
+    }
+  });
+  localStorage.setItem(TARGET_TRANSLATE_LANGS_KEY, JSON.stringify(unique));
+  if (unique.length > 0) {
+    localStorage.setItem(TARGET_TRANSLATE_LANG_KEY, unique[0]);
+  } else {
+    localStorage.removeItem(TARGET_TRANSLATE_LANG_KEY);
+  }
+  if (manual) {
+    localStorage.setItem(TARGET_TRANSLATE_LANG_MANUAL_KEY, "true");
+  } else {
+    localStorage.removeItem(TARGET_TRANSLATE_LANG_MANUAL_KEY);
+  }
+  syncActiveTargetTranslateLang(unique);
+  renderTargetTranslateLangChips();
+  notifyTargetTranslateLangChange();
+}
+
+function addTargetTranslateLang(code) {
+  const normalized = normalizeLangCode(code);
+  if (!getLanguageMeta(normalized)) return false;
+  const langs = getTargetTranslateLangs();
+  if (langs.includes(normalized)) return false;
+  setTargetTranslateLangs([...langs, normalized], true);
+  return true;
+}
+
+function removeTargetTranslateLang(code) {
+  const normalized = normalizeLangCode(code);
+  const langs = getTargetTranslateLangs().filter((item) => item !== normalized);
+  setTargetTranslateLangs(langs, true);
+}
+
+function resolveLanguageFromInput(value) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return null;
+
+  const codeInParen = trimmed.match(/\(([a-z]{2})\)\s*$/i);
+  if (codeInParen && getLanguageMeta(codeInParen[1])) {
+    return normalizeLangCode(codeInParen[1]);
+  }
+
+  const byCode = normalizeLangCode(trimmed);
+  if (getLanguageMeta(byCode)) return byCode;
+
+  const lower = trimmed.toLowerCase();
+  const list = window.WorldLanguages?.list || [];
+  const exact = list.find(
+    (lang) =>
+      lang.native.toLowerCase() === lower ||
+      lang.english.toLowerCase() === lower ||
+      `${lang.native} (${lang.english})`.toLowerCase() === lower
+  );
+  if (exact) return exact.code;
+
+  const partial = list.find(
+    (lang) =>
+      lang.native.toLowerCase().includes(lower) ||
+      lang.english.toLowerCase().includes(lower) ||
+      lang.code.includes(lower)
+  );
+  return partial?.code || null;
+}
+
+function getActiveTargetTranslateLang() {
+  const langs = getTargetTranslateLangs();
+  if (!langs.length) return null;
+
+  const stored = normalizeLangCode(localStorage.getItem(ACTIVE_TARGET_TRANSLATE_LANG_KEY));
+  if (stored && langs.includes(stored)) return stored;
+
+  localStorage.setItem(ACTIVE_TARGET_TRANSLATE_LANG_KEY, langs[0]);
+  return langs[0];
+}
+
+function setActiveTargetTranslateLang(code) {
+  const normalized = normalizeLangCode(code);
+  const langs = getTargetTranslateLangs();
+  if (!langs.includes(normalized)) return;
+  localStorage.setItem(ACTIVE_TARGET_TRANSLATE_LANG_KEY, normalized);
+  notifyTargetTranslateLangChange();
+}
+
+function getTargetTranslateLang() {
+  return getActiveTargetTranslateLang();
+}
+
+function setTargetTranslateLang(lang, manual = true) {
+  const normalized = normalizeLangCode(lang);
+  const langs = getTargetTranslateLangs().filter((item) => item !== normalized);
+  setTargetTranslateLangs([normalized, ...langs], manual);
+}
+
+function isTargetLangStorageSupported(code) {
+  const normalized = normalizeLangCode(code);
+  return normalized.length === 2 && Boolean(getLanguageMeta(normalized));
+}
+
+function onTargetTranslateLangChange(fn) {
+  targetTranslateLangListeners.push(fn);
+}
+
+function syncTargetTranslateLangPicker() {
+  const datalist = document.getElementById("targetTranslateLangList");
+  if (!datalist) return;
+
+  const added = new Set(getTargetTranslateLangs());
+  const options = (window.WorldLanguages?.list || [])
+    .filter((lang) => !added.has(lang.code))
+    .map((lang) => {
+      const label = currentLang === "en" ? lang.english : lang.native;
+      return `<option value="${label} (${lang.code})"></option>`;
+    });
+  datalist.innerHTML = options.join("");
+}
+
+function renderTargetTranslateLangChips() {
+  const container = document.getElementById("targetTranslateLangChips");
+  if (!container) return;
+
+  const langs = getTargetTranslateLangs();
+  container.innerHTML = langs
+    .map((code) => {
+      const label = getLanguageDisplayName(code);
+      const removeLabel = t("removeLanguage");
+      return `<span class="lang-chip" data-lang="${code}">
+        <span class="lang-chip__label">${label}</span>
+        <button type="button" class="lang-chip__remove" data-remove-lang="${code}" aria-label="${removeLabel}" title="${removeLabel}">×</button>
+      </span>`;
+    })
+    .join("");
+
+  container.querySelectorAll("[data-remove-lang]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      removeTargetTranslateLang(btn.dataset.removeLang);
+    });
+  });
+
+  syncTargetTranslateLangPicker();
+}
+
+function syncTargetTranslateLangSelect() {
+  renderTargetTranslateLangChips();
+}
 
 function detectBrowserLanguage() {
   const nav = (navigator.language || navigator.userLanguage || "tr").toLowerCase();
@@ -520,6 +789,8 @@ function applyTranslations() {
     appLangSelect.value = currentLang;
   }
 
+  syncTargetTranslateLangSelect();
+
   const setupLangSelect = document.getElementById("setupLanguage");
   if (setupLangSelect && setupLangSelect.value !== currentLang) {
     setupLangSelect.value = currentLang;
@@ -549,6 +820,9 @@ function setAppLanguage(lang) {
   const normalized = lang === "en" ? "en" : "tr";
   currentLang = normalized;
   localStorage.setItem(APP_LANGUAGE_KEY, normalized);
+  if (localStorage.getItem(TARGET_TRANSLATE_LANG_MANUAL_KEY) !== "true") {
+    setTargetTranslateLangs([getDefaultTargetTranslateLang(normalized)], false);
+  }
   applyTranslations();
   languageChangeListeners.forEach((fn) => fn(normalized));
 }
@@ -629,6 +903,37 @@ function initSetupModal() {
   }
 }
 
+function initTargetTranslateLangSetting() {
+  const searchInput = document.getElementById("targetTranslateLangSearch");
+  const addBtn = document.getElementById("targetTranslateLangAdd");
+  if (!searchInput || !addBtn) return;
+
+  renderTargetTranslateLangChips();
+
+  const handleAdd = () => {
+    const code = resolveLanguageFromInput(searchInput.value);
+    if (!code) {
+      window.showToast?.(t("languageNotFound"));
+      return;
+    }
+    if (getTargetTranslateLangs().includes(code)) {
+      window.showToast?.(t("languageAlreadyAdded"));
+      return;
+    }
+    addTargetTranslateLang(code);
+    searchInput.value = "";
+    searchInput.focus();
+  };
+
+  addBtn.addEventListener("click", handleAdd);
+  searchInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      handleAdd();
+    }
+  });
+}
+
 function initAppLanguageSetting() {
   const select = document.getElementById("appLanguage");
   if (!select) return;
@@ -642,6 +947,7 @@ function initI18n() {
   currentLang = getAppLanguage();
   applyTranslations();
   initAppLanguageSetting();
+  initTargetTranslateLangSetting();
   initSetupModal();
 }
 
@@ -660,6 +966,17 @@ window.I18n = {
   t,
   getAppLanguage,
   setAppLanguage,
+  getTargetTranslateLang,
+  getActiveTargetTranslateLang,
+  getTargetTranslateLangs,
+  setTargetTranslateLang,
+  setActiveTargetTranslateLang,
+  setTargetTranslateLangs,
+  addTargetTranslateLang,
+  removeTargetTranslateLang,
+  getLanguageDisplayName,
+  isTargetLangStorageSupported,
+  onTargetTranslateLangChange,
   applyTranslations,
   onLanguageChange,
   initI18n,

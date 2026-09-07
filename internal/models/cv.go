@@ -98,12 +98,13 @@ const (
 )
 
 type CVProfile struct {
-	ID               int64            `json:"id"`
-	Name             string           `json:"name"`
-	Language         string           `json:"language"`
-	Personal         PersonalInfo     `json:"personal"`
-	ContentTR        LocalizedContent `json:"contentTR"`
-	ContentEN        LocalizedContent `json:"contentEN"`
+	ID               int64                        `json:"id"`
+	Name             string                       `json:"name"`
+	Language         string                       `json:"language"`
+	Personal         PersonalInfo                 `json:"personal"`
+	ContentTR        LocalizedContent             `json:"contentTR"`
+	ContentEN        LocalizedContent             `json:"contentEN"`
+	ContentLanguages map[string]*LocalizedContent `json:"contentLanguages,omitempty"`
 	PhotoBase64      string           `json:"photoBase64"`
 	PhotoSize        int              `json:"photoSize"`
 	PhotoBorderWidth int              `json:"photoBorderWidth"`
@@ -143,12 +144,54 @@ func (c *LocalizedContent) IsEmpty() bool {
 		len(c.SkillGroups) == 0
 }
 
+func ValidLangCode(lang string) bool {
+	lang = strings.ToLower(strings.TrimSpace(lang))
+	if len(lang) != 2 {
+		return false
+	}
+	for _, r := range lang {
+		if r < 'a' || r > 'z' {
+			return false
+		}
+	}
+	return true
+}
+
 func (p *CVProfile) ContentForLang(lang string) *LocalizedContent {
 	lang = NormalizeLangCode(lang)
 	if lang == "en" {
 		return &p.ContentEN
 	}
-	return &p.ContentTR
+	if lang == "tr" {
+		return &p.ContentTR
+	}
+	if p.ContentLanguages == nil {
+		p.ContentLanguages = map[string]*LocalizedContent{}
+	}
+	if p.ContentLanguages[lang] == nil {
+		p.ContentLanguages[lang] = ptrLocalizedContent(EmptyLocalizedContent())
+	}
+	return p.ContentLanguages[lang]
+}
+
+func ptrLocalizedContent(content LocalizedContent) *LocalizedContent {
+	return &content
+}
+
+func (p *CVProfile) SetContentForLang(lang string, content LocalizedContent) {
+	lang = NormalizeLangCode(lang)
+	if lang == "en" {
+		p.ContentEN = content
+		return
+	}
+	if lang == "tr" {
+		p.ContentTR = content
+		return
+	}
+	if p.ContentLanguages == nil {
+		p.ContentLanguages = map[string]*LocalizedContent{}
+	}
+	p.ContentLanguages[lang] = ptrLocalizedContent(content)
 }
 
 func (p *CVProfile) ActiveContent() *LocalizedContent {
@@ -204,6 +247,9 @@ func NormalizeLangCode(lang string) string {
 	if lang == "en" {
 		return "en"
 	}
+	if ValidLangCode(lang) {
+		return lang
+	}
 	return "tr"
 }
 
@@ -243,6 +289,32 @@ func (p *CVProfile) ensureContentSlices() {
 	if p.ContentEN.SkillGroups == nil {
 		p.ContentEN.SkillGroups = []SkillGroup{}
 	}
+	if p.ContentLanguages == nil {
+		p.ContentLanguages = map[string]*LocalizedContent{}
+	}
+	for lang, content := range p.ContentLanguages {
+		if content == nil {
+			p.ContentLanguages[lang] = ptrLocalizedContent(EmptyLocalizedContent())
+			continue
+		}
+		*p.ContentLanguages[lang] = ensureLocalizedContentSlices(*content)
+	}
+}
+
+func ensureLocalizedContentSlices(content LocalizedContent) LocalizedContent {
+	if content.Experiences == nil {
+		content.Experiences = []Experience{}
+	}
+	if content.Education == nil {
+		content.Education = []Education{}
+	}
+	if content.Projects == nil {
+		content.Projects = []Project{}
+	}
+	if content.SkillGroups == nil {
+		content.SkillGroups = []SkillGroup{}
+	}
+	return content
 }
 
 func (p *CVProfile) hasLegacyContent() bool {

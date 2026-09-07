@@ -25,6 +25,19 @@ func (r *CVRepository) Count() (int, error) {
 	return count, err
 }
 
+// EnsureExampleProfile seeds the embedded example CV when the database is empty.
+func (r *CVRepository) EnsureExampleProfile() error {
+	count, err := r.Count()
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+	profile := SeedProfile()
+	return r.Create(profile)
+}
+
 func (r *CVRepository) List() ([]models.ProfileSummary, error) {
 	rows, err := r.db.Query(`
 		SELECT id, name, updated_at FROM profiles ORDER BY updated_at DESC
@@ -326,6 +339,24 @@ func (r *CVRepository) DeleteAll() error {
 	return err
 }
 
+// ResetToExample deletes all profiles and seeds the embedded example CV.
+func (r *CVRepository) ResetToExample() (*models.CVProfile, error) {
+	if err := r.DeleteAll(); err != nil {
+		return nil, err
+	}
+	if err := r.EnsureExampleProfile(); err != nil {
+		return nil, err
+	}
+	profiles, err := r.List()
+	if err != nil {
+		return nil, err
+	}
+	if len(profiles) == 0 {
+		return nil, fmt.Errorf("örnek profil oluşturulamadı")
+	}
+	return r.GetByID(profiles[0].ID)
+}
+
 func uniqueImportName(name string, used map[string]bool) string {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -369,7 +400,7 @@ func (r *CVRepository) UpdatePhoto(id int64, photoBase64 string) (*models.CVProf
 
 func profilePayload(profile *models.CVProfile) map[string]interface{} {
 	profile.Normalize()
-	return map[string]interface{}{
+	payload := map[string]interface{}{
 		"language":         profile.Language,
 		"personal":         profile.Personal,
 		"contentTR":        profile.ContentTR,
@@ -379,6 +410,10 @@ func profilePayload(profile *models.CVProfile) map[string]interface{} {
 		"photoBorderWidth": profile.PhotoBorderWidth,
 		"photoBorderColor": profile.PhotoBorderColor,
 	}
+	if len(profile.ContentLanguages) > 0 {
+		payload["contentLanguages"] = profile.ContentLanguages
+	}
+	return payload
 }
 
 func SeedProfile() *models.CVProfile {

@@ -108,6 +108,8 @@ body {
 
 .toolbar__section--center {
   flex: 0 1 auto;
+  align-items: center;
+  overflow: visible;
 }
 
 .toolbar__section--right {
@@ -203,16 +205,47 @@ body {
 
 .toolbar__lang {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+}
+
+.toolbar__lang-row {
+  display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 8px;
+  height: 38px;
 }
 
 .toolbar__lang-label {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
   white-space: nowrap;
   margin: 0;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.toolbar__lang-row .toolbar-select--compact {
+  min-width: 120px;
+  width: auto;
+  flex-shrink: 0;
+}
+
+.toolbar__translate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.toolbar__translate .toolbar-select--compact {
+  min-width: 120px;
 }
 
 .language-empty-hint {
@@ -523,6 +556,93 @@ body {
   border-radius: var(--radius);
 }
 
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.form-field > label {
+  margin: 0;
+}
+
+.form-field > select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  padding-right: 32px;
+  cursor: pointer;
+}
+
+.lang-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  min-height: 28px;
+}
+
+.lang-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--surface-secondary, var(--bg-secondary));
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+.lang-chip__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.lang-chip__remove:hover {
+  background: var(--btn-outline-hover);
+  color: var(--text-primary);
+}
+
+.lang-add-row {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: stretch;
+}
+
+.lang-add-row > input {
+  flex: 1;
+  min-width: 0;
+}
+
+.lang-add-row > .btn {
+  flex-shrink: 0;
+  align-self: stretch;
+}
+
+[data-theme="dark"] .form-field > select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a3a3a3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+
+.form-section > .form-hint + .form-hint {
+  margin-top: var(--space-xs);
+}
+
 .form-subsection {
   margin-top: var(--space-lg);
   padding-top: var(--space-md);
@@ -546,6 +666,12 @@ body {
 .backup-import-label {
   cursor: pointer;
   margin: 0;
+}
+
+.reset-section {
+  margin-top: var(--space-lg);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border);
 }
 
 /* ── API Keys ── */

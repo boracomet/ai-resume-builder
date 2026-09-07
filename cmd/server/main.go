@@ -69,6 +69,7 @@ func main() {
 		api.GET("/profiles/:id/export", backupHandler.ExportProfile)
 		api.GET("/export", backupHandler.ExportAll)
 		api.POST("/import", backupHandler.Import)
+		api.POST("/reset", backupHandler.Reset)
 		api.POST("/profiles/:id/translate", translateHandler.TranslateProfile)
 		api.GET("/ai/models", aiHandler.ListModels)
 		api.POST("/ai/test", aiHandler.TestConnection)
@@ -101,14 +102,5 @@ func serveIndex(c *gin.Context) {
 }
 
 func seedIfEmpty(repo *db.CVRepository) error {
-	count, err := repo.Count()
-	if err != nil {
-		return err
-	}
-	if count > 0 {
-		return nil
-	}
-
-	profile := db.SeedProfile()
-	return repo.Create(profile)
+	return repo.EnsureExampleProfile()
 }

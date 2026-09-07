@@ -277,4 +277,8 @@ const API = {
       body: JSON.stringify({ mode, profiles }),
     });
   },
+
+  resetAllProfiles() {
+    return this.request("/api/reset", { method: "POST" });
+  },
 };

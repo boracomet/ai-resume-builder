@@ -22,6 +22,11 @@ func NewCVHandler(repo *db.CVRepository) *CVHandler {
 }
 
 func (h *CVHandler) ListProfiles(c *gin.Context) {
+	if err := h.repo.EnsureExampleProfile(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	profiles, err := h.repo.List()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
