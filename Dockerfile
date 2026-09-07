@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
@@ -13,7 +13,13 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /cv-server ./cmd/serve
 # Runtime stage
 FROM alpine:3.20
 
-RUN apk add --no-cache chromium ca-certificates tzdata
+RUN apk add --no-cache \
+    chromium \
+    ca-certificates \
+    tzdata \
+    tesseract-ocr \
+    tesseract-ocr-data-tur \
+    tesseract-ocr-data-eng
 
 ENV CHROME_PATH=/usr/bin/chromium-browser
 

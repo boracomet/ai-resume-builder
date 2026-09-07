@@ -8,9 +8,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/boradev/bora-cv/internal/i18n"
-	"github.com/boradev/bora-cv/internal/models"
-	webassets "github.com/boradev/bora-cv/web"
+	"github.com/boracomet/ai-resume-builder/internal/i18n"
+	"github.com/boracomet/ai-resume-builder/internal/models"
+	webassets "github.com/boracomet/ai-resume-builder/web"
 )
 
 type Renderer struct {

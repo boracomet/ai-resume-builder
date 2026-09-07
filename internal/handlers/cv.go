@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/boradev/bora-cv/internal/db"
-	"github.com/boradev/bora-cv/internal/models"
+	"github.com/boracomet/ai-resume-builder/internal/db"
+	"github.com/boracomet/ai-resume-builder/internal/models"
 	"github.com/gin-gonic/gin"
 )
 
@@ -95,6 +95,54 @@ func (h *CVHandler) UpdateProfile(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, updated)
+}
+
+func (h *CVHandler) DuplicateProfile(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+
+	profile, err := h.repo.Duplicate(id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "profil bulunamadı"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, profile)
+}
+
+func (h *CVHandler) CopyFromProfile(c *gin.Context) {
+	targetID, ok := parseID(c)
+	if !ok {
+		return
+	}
+
+	sourceID, err := parseInt64(c.Param("sourceId"))
+	if err != nil || sourceID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "geçersiz kaynak profil id"})
+		return
+	}
+
+	var opts models.ProfileCopyOptions
+	if err := c.ShouldBindJSON(&opts); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	profile, err := h.repo.CopyFrom(targetID, sourceID, opts)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "profil bulunamadı"})
+			return
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, profile)
 }
 
 func (h *CVHandler) DeleteProfile(c *gin.Context) {

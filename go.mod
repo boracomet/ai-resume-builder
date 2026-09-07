@@ -1,10 +1,12 @@
-module github.com/boradev/bora-cv
+module github.com/boracomet/ai-resume-builder
 
-go 1.23
+go 1.24.0
 
 require (
 	github.com/chromedp/cdproto v0.0.0-20241022234722-4d5d5faf59fb
 	github.com/chromedp/chromedp v0.11.0
+	github.com/gabriel-vasile/mimetype v1.4.3
+	github.com/gen2brain/go-fitz v1.28.2
 	github.com/gin-gonic/gin v1.10.0
 	github.com/joho/godotenv v1.5.1
 	modernc.org/sqlite v1.34.1
@@ -17,7 +19,7 @@ require (
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
+	github.com/ebitengine/purego v0.10.1 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
@@ -44,7 +46,7 @@ require (
 	golang.org/x/arch v0.8.0 // indirect
 	golang.org/x/crypto v0.23.0 // indirect
 	golang.org/x/net v0.25.0 // indirect
-	golang.org/x/sys v0.26.0 // indirect
+	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/text v0.15.0 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

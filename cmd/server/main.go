@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/boradev/bora-cv/internal/db"
-	"github.com/boradev/bora-cv/internal/handlers"
-	"github.com/boradev/bora-cv/web"
+	"github.com/boracomet/ai-resume-builder/internal/db"
+	"github.com/boracomet/ai-resume-builder/internal/handlers"
+	"github.com/boracomet/ai-resume-builder/web"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
@@ -39,7 +39,10 @@ func main() {
 	previewHandler := handlers.NewPreviewHandler()
 	pdfHandler := handlers.NewPDFHandler()
 	translateHandler := handlers.NewTranslateHandler(repo)
+	aiHandler := handlers.NewAIHandler(repo)
+	ocrHandler := handlers.NewOCRHandler()
 	settingsHandler := handlers.NewSettingsHandler()
+	backupHandler := handlers.NewBackupHandler(repo)
 
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -60,8 +63,18 @@ func main() {
 		api.GET("/profiles/:id", cvHandler.GetProfile)
 		api.PUT("/profiles/:id", cvHandler.UpdateProfile)
 		api.DELETE("/profiles/:id", cvHandler.DeleteProfile)
+		api.POST("/profiles/:id/duplicate", cvHandler.DuplicateProfile)
+		api.POST("/profiles/:id/copy-from/:sourceId", cvHandler.CopyFromProfile)
 		api.POST("/profiles/:id/photo", cvHandler.UploadPhoto)
+		api.GET("/profiles/:id/export", backupHandler.ExportProfile)
+		api.GET("/export", backupHandler.ExportAll)
+		api.POST("/import", backupHandler.Import)
 		api.POST("/profiles/:id/translate", translateHandler.TranslateProfile)
+		api.GET("/ai/models", aiHandler.ListModels)
+		api.POST("/ai/test", aiHandler.TestConnection)
+		api.POST("/ai/chat", aiHandler.Chat)
+		api.POST("/ai/apply", aiHandler.Apply)
+		api.POST("/ocr/pdf", ocrHandler.ProcessPDF)
 		api.GET("/settings", settingsHandler.GetStatus)
 		api.POST("/preview", previewHandler.Preview)
 		api.POST("/pdf", pdfHandler.Generate)
@@ -72,7 +85,7 @@ func main() {
 		port = "8080"
 	}
 
-	log.Printf("ATA CV Builder http://localhost:%s adresinde çalışıyor", port)
+	log.Printf("AI Resume Builder http://localhost:%s adresinde çalışıyor", port)
 	if err := router.Run(":" + port); err != nil {
 		log.Fatalf("sunucu başlatılamadı: %v", err)
 	}

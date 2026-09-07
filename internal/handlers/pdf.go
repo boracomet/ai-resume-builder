@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/boradev/bora-cv/internal/models"
-	"github.com/boradev/bora-cv/internal/pdf"
-	"github.com/boradev/bora-cv/internal/render"
+	"github.com/boracomet/ai-resume-builder/internal/models"
+	"github.com/boracomet/ai-resume-builder/internal/pdf"
+	"github.com/boracomet/ai-resume-builder/internal/render"
 	"github.com/gin-gonic/gin"
 )
 
@@ -42,7 +42,7 @@ func (h *PDFHandler) Generate(c *gin.Context) {
 		return
 	}
 
-	filename := "bora-cv.pdf"
+	filename := "resume.pdf"
 	if name := strings.TrimSpace(profile.Personal.Name); name != "" {
 		slug := strings.ToLower(strings.ReplaceAll(name, " ", "-"))
 		filename = slug + "-cv.pdf"

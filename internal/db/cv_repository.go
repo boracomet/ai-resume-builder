@@ -4,9 +4,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
-	"github.com/boradev/bora-cv/internal/models"
+	"github.com/boracomet/ai-resume-builder/internal/db/seed"
+	"github.com/boracomet/ai-resume-builder/internal/models"
 )
 
 type CVRepository struct {
@@ -122,6 +124,127 @@ func (r *CVRepository) Update(profile *models.CVProfile) error {
 	return nil
 }
 
+func (r *CVRepository) Duplicate(id int64) (*models.CVProfile, error) {
+	original, err := r.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if original == nil {
+		return nil, sql.ErrNoRows
+	}
+
+	data, err := json.Marshal(profilePayload(original))
+	if err != nil {
+		return nil, err
+	}
+
+	var copy models.CVProfile
+	if err := json.Unmarshal(data, &copy); err != nil {
+		return nil, fmt.Errorf("unmarshal duplicate: %w", err)
+	}
+
+	copy.Name = duplicateProfileName(original.Name)
+	if err := r.Create(&copy); err != nil {
+		return nil, err
+	}
+	return &copy, nil
+}
+
+func (r *CVRepository) CopyFrom(targetID, sourceID int64, opts models.ProfileCopyOptions) (*models.CVProfile, error) {
+	if targetID == sourceID {
+		return nil, fmt.Errorf("kaynak ve hedef profil aynı olamaz")
+	}
+
+	target, err := r.GetByID(targetID)
+	if err != nil {
+		return nil, err
+	}
+	if target == nil {
+		return nil, sql.ErrNoRows
+	}
+
+	source, err := r.GetByID(sourceID)
+	if err != nil {
+		return nil, err
+	}
+	if source == nil {
+		return nil, fmt.Errorf("kaynak profil bulunamadı: %d", sourceID)
+	}
+
+	if opts.CopyPhoto {
+		target.PhotoBase64 = source.PhotoBase64
+		target.PhotoSize = source.PhotoSize
+		target.PhotoBorderWidth = source.PhotoBorderWidth
+		target.PhotoBorderColor = source.PhotoBorderColor
+	}
+	if opts.CopyPersonal {
+		target.Personal = source.Personal
+	}
+
+	copyContent := opts.CopyContentTR || opts.CopyContentEN || len(opts.Sections) > 0
+	if copyContent {
+		if opts.CopyContentTR || len(opts.Sections) > 0 {
+			target.ContentTR = copyLocalizedContent(target.ContentTR, source.ContentTR, opts, true)
+		}
+		if opts.CopyContentEN || len(opts.Sections) > 0 {
+			target.ContentEN = copyLocalizedContent(target.ContentEN, source.ContentEN, opts, false)
+		}
+	}
+
+	target.Normalize()
+	if err := r.Update(target); err != nil {
+		return nil, err
+	}
+	return r.GetByID(targetID)
+}
+
+func copyLocalizedContent(dst, src models.LocalizedContent, opts models.ProfileCopyOptions, isTR bool) models.LocalizedContent {
+	copyAll := opts.CopiesAllContent()
+	if !copyAll && len(opts.Sections) == 0 {
+		if isTR && opts.CopyContentTR {
+			copyAll = true
+		}
+		if !isTR && opts.CopyContentEN {
+			copyAll = true
+		}
+	}
+
+	shouldCopy := func(section string) bool {
+		return copyAll || opts.WantsSection(section)
+	}
+
+	if shouldCopy("summary") {
+		dst.Summary = src.Summary
+	}
+	if shouldCopy("personalTitle") {
+		dst.PersonalTitle = src.PersonalTitle
+	}
+	if shouldCopy("personalLanguages") {
+		dst.PersonalLanguages = src.PersonalLanguages
+	}
+	if shouldCopy("experience") || shouldCopy("experiences") {
+		dst.Experiences = append([]models.Experience(nil), src.Experiences...)
+	}
+	if shouldCopy("education") {
+		dst.Education = append([]models.Education(nil), src.Education...)
+	}
+	if shouldCopy("projects") {
+		dst.Projects = append([]models.Project(nil), src.Projects...)
+	}
+	if shouldCopy("skills") || shouldCopy("skillGroups") {
+		dst.SkillGroups = append([]models.SkillGroup(nil), src.SkillGroups...)
+	}
+	return dst
+}
+
+func duplicateProfileName(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "Varsayılan CV (Kopya)"
+	}
+	return name + " - Kopya"
+}
+
 func (r *CVRepository) Delete(id int64) error {
 	result, err := r.db.Exec(`DELETE FROM profiles WHERE id = ?`, id)
 	if err != nil {
@@ -135,6 +258,97 @@ func (r *CVRepository) Delete(id int64) error {
 		return sql.ErrNoRows
 	}
 	return nil
+}
+
+func (r *CVRepository) ExportAll() ([]models.CVProfile, error) {
+	summaries, err := r.List()
+	if err != nil {
+		return nil, err
+	}
+
+	profiles := make([]models.CVProfile, 0, len(summaries))
+	for _, summary := range summaries {
+		profile, err := r.GetByID(summary.ID)
+		if err != nil {
+			return nil, err
+		}
+		if profile != nil {
+			profiles = append(profiles, *profile)
+		}
+	}
+	return profiles, nil
+}
+
+func (r *CVRepository) ImportProfiles(profiles []models.CVProfile, mode string) ([]models.CVProfile, error) {
+	mode = strings.ToLower(strings.TrimSpace(mode))
+	if mode != "replace" {
+		mode = "merge"
+	}
+
+	if mode == "replace" {
+		if err := r.DeleteAll(); err != nil {
+			return nil, err
+		}
+	}
+
+	usedNames := map[string]bool{}
+	if mode == "merge" {
+		existing, err := r.ExportAll()
+		if err != nil {
+			return nil, err
+		}
+		for _, p := range existing {
+			usedNames[p.Name] = true
+		}
+	}
+
+	imported := make([]models.CVProfile, 0, len(profiles))
+	for _, profile := range profiles {
+		profile.ID = 0
+		profile.CreatedAt = time.Time{}
+		profile.UpdatedAt = time.Time{}
+		profile.Normalize()
+
+		if mode == "merge" {
+			profile.Name = uniqueImportName(profile.Name, usedNames)
+		}
+
+		if err := r.Create(&profile); err != nil {
+			return nil, err
+		}
+		imported = append(imported, profile)
+	}
+	return imported, nil
+}
+
+func (r *CVRepository) DeleteAll() error {
+	_, err := r.db.Exec(`DELETE FROM profiles`)
+	return err
+}
+
+func uniqueImportName(name string, used map[string]bool) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = "Imported Profile"
+	}
+	if !used[name] {
+		used[name] = true
+		return name
+	}
+
+	candidate := name + " (import)"
+	if !used[candidate] {
+		used[candidate] = true
+		return candidate
+	}
+
+	for i := 2; ; i++ {
+		candidate = fmt.Sprintf("%s (import %d)", name, i)
+		if !used[candidate] {
+			used[candidate] = true
+			return candidate
+		}
+	}
 }
 
 func (r *CVRepository) UpdatePhoto(id int64, photoBase64 string) (*models.CVProfile, error) {
@@ -168,247 +382,5 @@ func profilePayload(profile *models.CVProfile) map[string]interface{} {
 }
 
 func SeedProfile() *models.CVProfile {
-	contentTR := models.LocalizedContent{
-		PersonalTitle:     "Full Stack Developer",
-		PersonalLanguages: "Türkçe (Ana Dil), İngilizce (B2)",
-		Summary:           "Ölçeklenebilir web uygulamaları geliştiren bir Full Stack Developer'ım. Temiz kod, sürdürülebilir yazılım mimarileri ve kullanıcı deneyimi odaklı ürünler geliştirmeye önem veriyorum. Gerçek problemleri teknolojiyle çözmeyi, yenilikçi ve etkili yazılım çözümleri üretmeyi hedefliyorum.",
-		Experiences: []models.Experience{
-			{
-				Title:     "IT Web Support Takım Lideri",
-				Company:   "Roofstacks - Yazılım Teknolojileri Şirketi",
-				StartDate: "Eylül 2025",
-				EndDate:   "Şubat 2026",
-				Duration:  "6 Ay",
-				Location:  "Uzaktan",
-				Description: "Roof Stacks, AR/VR, Web3, Metaverse, e-ticaret, oyun ve NFT alanlarında faaliyet gösteren, Austin merkezli uluslararası bir teknoloji şirketidir.",
-				Highlights: []string{
-					"Web Support biriminin liderliğini üstlenerek üç kişilik ekibi yönettim.",
-					"Web altyapısı, CMS, frontend, deployment ve teknik destek süreçlerinde görev aldım.",
-					"Dış kaynaklı web hizmetlerinin şirket içine taşınmasını yönettım.",
-					".NET tabanlı iç uygulamalar ve intranet çözümleri geliştirdim.",
-					"Azure DevOps ve GCP Kubernetes operasyonlarına katkı sağladım.",
-				},
-			},
-			{
-				Title:     "Full Stack Developer",
-				Company:   "Onlipr - Kreatif Pazarlama Ajansı",
-				StartDate: "Mart 2025",
-				EndDate:   "Eylül 2025",
-				Duration:  "6 Ay",
-				Location:  "Uzaktan, Sözleşmeli",
-				Description: "Onlipr, Türkiye ve Amerika pazarlarında faaliyet gösteren bir dijital ajans ve teknoloji şirketidir.",
-				Highlights: []string{
-					"Web projelerinde sunucu yönetimi, frontend geliştirme, CMS geliştirme ve yayına alma süreçlerinde görev aldım.",
-					"Projelerin uçtan uca geliştirilmesine katkı sağladım.",
-				},
-			},
-			{
-				Title:     "Web Developer",
-				Company:   "Segnet Dijital Yazılım",
-				StartDate: "Şubat 2024",
-				EndDate:   "Mart 2025",
-				Duration:  "13 Ay",
-				Location:  "Uzaktan",
-				Description: "Segnet Digital, İstanbul merkezli bir yazılım şirketidir ve işletmelere ihtiyaçlarına özel kurumsal yazılım çözümleri sunmaktadır.",
-				Highlights: []string{
-					"Şirket bünyesinde kurumsal web projelerinde görev aldım.",
-					"GitHub üzerinden repository ve source control süreçlerini yönettim.",
-					"Projelerin Google Cloud Run üzerinde container tabanlı olarak yayına alınması, deployment ve production süreçlerinde aktif rol aldım.",
-				},
-			},
-			{
-				Title:     "Web Developer",
-				Company:   "Cicoop Baby",
-				StartDate: "Ocak 2023",
-				EndDate:   "Ocak 2024",
-				Duration:  "12 Ay",
-				Location:  "Uzaktan, Sözleşmeli",
-				Description: "Cicoop Baby'nin kurumsal web altyapısı ve şirket içi stok yönetim sistemlerinin geliştirilmesinde görev aldım.",
-				Highlights: []string{
-					"PHP, MySQL ve web scraping teknolojilerini kullanarak ürün takibi, stok kontrolü, veri toplama ve süreç otomasyonu için özel web uygulamaları geliştirdim.",
-					"Backend geliştirme, veritabanı yönetimi ve iş süreçlerinin dijitalleştirilmesine yönelik çözümler ürettim.",
-				},
-			},
-			{
-				Title:     "Junior Web Developer",
-				Company:   "Altın Dünyası Yayın Grubu",
-				StartDate: "Eylül 2020",
-				EndDate:   "Ekim 2021",
-				Duration:  "13 Ay",
-				Location:  "Ofisten",
-				Description: "Uluslararası mücevher sektörüne yönelik devlet destekli Türkiye Mücevher B2B Portalı – turkishjewellery.org projesinde Junior Web Developer olarak görev aldım.",
-				Highlights: []string{
-					"Frontend geliştirme, responsive web arayüzleri, görsel optimizasyon, performans iyileştirme ve kullanıcı deneyimi çalışmalarında yer aldım.",
-					"Kurumsal web platformunun geliştirilmesi ve yayına hazırlanması süreçlerine katkı sağladım.",
-				},
-			},
-		},
-		Education: []models.Education{
-			{
-				Degree:      "Web Tasarımı ve Kodlama",
-				School:      "Anadolu Üniversitesi Açıköğretim Fakültesi",
-				StartDate:   "2022",
-				EndDate:     "Devam Ediyor",
-				Description: "Web Tasarımı ve Kodlama önlisans programında eğitimime devam ediyorum. Program kapsamında HTML, CSS, JavaScript, kullanıcı deneyimi (UX), web tabanlı uygulama geliştirme ve dijital yayıncılık alanlarında eğitim alıyorum. Ayrıca müfredat ve uygulamalı çalışmalar kapsamında .NET, Golang, Node.js, React, TypeScript, REST API, frontend ve backend development konularında bilgi ve deneyim kazanıyorum.",
-			},
-			{
-				Degree:      "Grafik Tasarım (Çift Anadal)",
-				School:      "Nişantaşı Üniversitesi Meslek Yüksekokulu",
-				StartDate:   "2018",
-				EndDate:     "2020",
-				Description: "Adobe Photoshop, Illustrator ve InDesign kullanarak grafik tasarım, dijital medya, arayüz tasarımı ve görsel iletişim alanlarında eğitim aldım. Web tasarımı, UI/UX ve dijital ürün tasarımı konusunda temel yetkinlikler kazandım.",
-			},
-			{
-				Degree:      "Fotoğrafçılık ve Kameramanlık (Ana Dal)",
-				School:      "Nişantaşı Üniversitesi Meslek Yüksekokulu",
-				StartDate:   "2017",
-				EndDate:     "2019",
-				Description: "Fotoğrafçılık, videografi, görsel hikâye anlatımı ve kompozisyon alanlarında eğitim aldım. Adobe Photoshop, Premiere Pro, Lightroom, Illustrator ve InDesign kullanarak görsel düzenleme, video prodüksiyonu ve dijital içerik üretimi alanlarında deneyim kazandım.",
-			},
-		},
-		Projects: []models.Project{},
-		SkillGroups: []models.SkillGroup{
-			{
-				Category: "Frontend",
-				Skills: []string{
-					"React, Next.js",
-					"JavaScript / TypeScript",
-					"Vue, Nuxt, Vite, Astro, Handlebars",
-					"Responsive ve performans odaklı UI geliştirme",
-					"Figma to Code, Pixel-perfect arayüz geliştirme",
-					"SSR, SSG ve modern frontend rendering yaklaşımları",
-					"Component-based frontend architecture",
-					"REST API ve GraphQL API entegrasyonu",
-					"Cross-browser uyumluluk",
-					"Core Web Vitals ve frontend performans optimizasyonu",
-				},
-			},
-			{
-				Category: "Backend",
-				Skills: []string{
-					"Node.js ekosistemi",
-					"TypeScript tabanlı backend geliştirme",
-					"Go (Golang) ile backend servis geliştirme",
-					".NET / ASP.NET ile kurumsal ve şirket içi web uygulaması geliştirme deneyimi",
-					"Python (Web Scraping)",
-					"RESTful API ve GraphQL API tasarımı ve geliştirme",
-					"Mikroservis ve servis tabanlı mimariler",
-					"CRUD tabanlı uygulama geliştirme",
-				},
-			},
-			{
-				Category: "Database",
-				Skills: []string{
-					"PostgreSQL",
-					"MongoDB",
-					"MySQL",
-					"SQLite",
-					"Veri modelleme ve temel veritabanı yönetimi",
-				},
-			},
-			{
-				Category: "Messaging & Event-Driven",
-				Skills: []string{
-					"RabbitMQ",
-					"Apache Kafka",
-					"Message Queue mimarileri",
-					"Event-Driven Architecture",
-					"Olay tabanlı sistem tasarımı",
-					"Asenkron servis iletişimi",
-				},
-			},
-			{
-				Category: "DevOps & Infrastructure",
-				Skills: []string{
-					"Docker",
-					"Docker Compose",
-					"Kubernetes",
-					"Container / Pod yönetimi",
-					"CI/CD Pipeline yönetimi",
-					"Build, Test ve Production Deployment süreçleri",
-					"Google Cloud Platform (GCP)",
-					"Google Cloud Run",
-					"Azure DevOps",
-					"AWS EC2, S3",
-					"Nginx, Reverse Proxy",
-					"OpenLiteSpeed",
-					"Linux sistem ve sunucu yönetimi",
-					"Self-hosted PaaS Coolify, Dokploy",
-					"Monorepo tabanlı deployment yapıları",
-					"VPN arkasında internal service ve yönetim paneli deployment süreçleri",
-				},
-			},
-			{
-				Category: "Cloud & Architecture",
-				Skills: []string{
-					"Cloud-native uygulama mimarileri",
-					"PaaS / Serverless deployment",
-					"Tekli ve çoklu Container / Pod mimarileri",
-					"Intranet ve Internal Web Application geliştirme",
-					"On-premise / Private Infrastructure deneyimi",
-					"Mimari planlama ve servis bağımlılıklarının tasarımı",
-					"Production Release Management",
-					"Deployment koordinasyonu",
-					"Performans, sürdürülebilirlik ve maliyet optimizasyonu",
-					"Mermaid ile sistem ve deployment diyagramları",
-				},
-			},
-			{
-				Category: "AI/ML & LLM",
-				Skills: []string{
-					"Local LLM deployment ve model yönetimi",
-					"AI Agent geliştirme",
-					"Agent orchestration",
-					"RAG mimarileri",
-					"Knowledge-based systems",
-					"Prompt Engineering",
-					"AI destekli otomasyon",
-					"Otonom görev yürüten AI sistemleri",
-					"OpenClaw, Hermes ve benzeri Agent Framework'leri",
-				},
-			},
-			{
-				Category: "Mobile",
-				Skills: []string{
-					"SwiftUI ile Apple ekosisteminde uygulama geliştirme",
-					"React Native ile mobil uygulama geliştirme",
-					"Native ve cross-platform mobil uygulama yaklaşımları",
-				},
-			},
-			{
-				Category: "Tools & Version Control",
-				Skills: []string{
-					"Git",
-					"GitHub",
-					"GitLab",
-					"Azure DevOps Repos",
-					"Source Control ve Repository Management",
-					"CI/CD Pipelines",
-					"Agile",
-					"Scrum",
-					"Kanban",
-				},
-			},
-		},
-	}
-
-	return &models.CVProfile{
-		Name:     "Varsayılan CV",
-		Language: "tr",
-		Personal: models.PersonalInfo{
-			Name:      "Bora Ata Türkoğlu",
-			BirthDate: "Haziran 1997",
-			Email:     "ataturkoglubora@gmail.com",
-			Phone:     "+90 541 947 44 93",
-			Location:  "İstanbul",
-			Portfolio: "https://boraturkoglu.com",
-			LinkedIn:  "https://linkedin.com/in/boracomet",
-			GitHub:    "https://github.com/boracomet",
-		},
-		ContentTR:        contentTR,
-		ContentEN:        models.EmptyLocalizedContent(),
-		PhotoSize:        models.DefaultPhotoSize,
-		PhotoBorderWidth: models.DefaultPhotoBorderWidth,
-		PhotoBorderColor: models.DefaultPhotoBorderColor,
-	}
+	return seed.ExampleProfile()
 }

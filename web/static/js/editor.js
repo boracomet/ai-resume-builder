@@ -1,3 +1,5 @@
+const t = (key, params) => window.I18n?.t(key, params) ?? key;
+
 const API_KEY_CONFIG = [
   {
     storageKey: "googleTranslateApiKey",
@@ -42,7 +44,7 @@ const SECTION_IDS = [
   "projects",
   "skills",
   "photo",
-  "api-keys",
+  "ai-assistant",
 ];
 
 const THEME_STORAGE_KEY = "theme";
@@ -50,6 +52,7 @@ const THEME_STORAGE_KEY = "theme";
 const els = {
   profileSelect: document.getElementById("profileSelect"),
   newProfileBtn: document.getElementById("newProfileBtn"),
+  duplicateProfileBtn: document.getElementById("duplicateProfileBtn"),
   deleteProfileBtn: document.getElementById("deleteProfileBtn"),
   saveBtn: document.getElementById("saveBtn"),
   pdfBtn: document.getElementById("pdfBtn"),
@@ -74,6 +77,9 @@ const els = {
   projectsList: document.getElementById("projectsList"),
   skillGroupsList: document.getElementById("skillGroupsList"),
   toast: document.getElementById("toast"),
+  exportProfileBtn: document.getElementById("exportProfileBtn"),
+  exportAllBtn: document.getElementById("exportAllBtn"),
+  importProfileInput: document.getElementById("importProfileInput"),
   editorSidebar: document.querySelector(".editor-sidebar"),
   formSections: document.querySelectorAll(".form-section[data-section-id]"),
 };
@@ -95,6 +101,7 @@ function showSection(sectionId) {
 
   const content = document.querySelector(".editor-content");
   if (content) {
+    content.classList.toggle("editor-content--ai-chat", sectionId === "ai-assistant");
     content.scrollTop = 0;
   }
 }
@@ -123,7 +130,7 @@ function emptyLocalizedContent() {
 function emptyProfile() {
   return {
     id: 0,
-    name: "Yeni CV",
+    name: t("newCv"),
     language: "tr",
     personal: {
       name: "",
@@ -223,6 +230,12 @@ function ensureBilingualStructure(profile) {
     content.education = content.education || [];
     content.projects = content.projects || [];
     content.skillGroups = content.skillGroups || [];
+    content.education.forEach((edu) => {
+      if (!edu.institution && edu.school) {
+        edu.institution = edu.school;
+        delete edu.school;
+      }
+    });
   });
 }
 
@@ -267,7 +280,24 @@ function getApiKeyValue(config) {
   const input = getApiKeyInput(config.inputId);
   const fromInput = input?.value.trim() || "";
   if (fromInput) return fromInput;
-  return localStorage.getItem(config.storageKey) || "";
+  const fromStorage = (localStorage.getItem(config.storageKey) || "").trim();
+  return fromStorage;
+}
+
+function isOpenAIConfigured() {
+  return !!getOpenAIApiKey() || !!state.envSettings.openaiConfigured;
+}
+
+function getOpenAIApiKey() {
+  const config = API_KEY_CONFIG[1];
+  return getApiKeyValue(config);
+}
+
+function getTranslateProvider() {
+  const select = document.getElementById("translateProvider");
+  const fromSelect = select?.value;
+  if (fromSelect) return fromSelect;
+  return localStorage.getItem("translateProvider") || "google";
 }
 
 function getGoogleApiKey() {
@@ -285,13 +315,13 @@ function updateApiKeyStatus(config) {
 
   statusEl.className = "api-key-status";
   if (hasLocal) {
-    statusEl.textContent = "Tarayıcıda kayıtlı (öncelikli)";
+    statusEl.textContent = t("apiKeyLocal");
     statusEl.classList.add("api-key-status--local");
   } else if (hasEnv) {
-    statusEl.textContent = ".env ile yapılandırıldı";
+    statusEl.textContent = t("apiKeyEnv");
     statusEl.classList.add("api-key-status--env");
   } else {
-    statusEl.textContent = "Yapılandırılmadı";
+    statusEl.textContent = t("apiKeyEmpty");
     statusEl.classList.add("api-key-status--empty");
   }
 }
@@ -353,7 +383,7 @@ function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", resolved);
   if (els.themeToggle) {
     const isDark = resolved === "dark";
-    const label = isDark ? "Açık mod" : "Karanlık mod";
+    const label = isDark ? t("lightMode") : t("darkMode");
     els.themeToggle.setAttribute("aria-label", label);
     els.themeToggle.title = label;
   }
@@ -435,11 +465,11 @@ function updateLanguageUI() {
 
   if (els.translateBtn) {
     els.translateBtn.classList.toggle("hidden", lang === "en");
-    els.translateBtn.textContent = "İngilizceye Çevir";
+    els.translateBtn.textContent = t("translateToEn");
   }
   if (els.translateToTrBtn) {
     els.translateToTrBtn.classList.toggle("hidden", lang === "tr");
-    els.translateToTrBtn.textContent = "Türkçeye Çevir";
+    els.translateToTrBtn.textContent = t("translateToTr");
   }
 }
 
@@ -514,14 +544,15 @@ function reorderSkillGroups(fromIndex, toIndex) {
   }
 }
 
-function createReorderButton(label, disabled, onClick) {
+function createReorderButton(direction, disabled, onClick) {
+  const label = direction === "up" ? t("moveUp") : t("moveDown");
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "btn btn-secondary btn-sm btn-icon-reorder";
   btn.setAttribute("aria-label", label);
   btn.title = label;
   btn.disabled = disabled;
-  btn.innerHTML = label === "Yukarı taşı"
+  btn.innerHTML = direction === "up"
     ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M12 5l-7 7h14l-7-7z"/></svg>'
     : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M12 19l7-7H5l7 7z"/></svg>';
   btn.addEventListener("click", onClick);
@@ -534,8 +565,8 @@ function attachCardDragReorder(card, index, onReorder) {
   const dragHandle = document.createElement("button");
   dragHandle.type = "button";
   dragHandle.className = "card-drag-handle";
-  dragHandle.setAttribute("aria-label", "Sürükleyerek sırala");
-  dragHandle.title = "Sürükleyerek sırala";
+  dragHandle.setAttribute("aria-label", t("dragToReorder"));
+  dragHandle.title = t("dragToReorder");
   dragHandle.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>';
 
   dragHandle.addEventListener("mousedown", () => {
@@ -622,15 +653,15 @@ function createCard(title, onRemove, contentBuilder, reorder = null) {
 
   if (reorder) {
     actions.append(
-      createReorderButton("Yukarı taşı", reorder.index === 0, () => reorder.onMove(-1)),
-      createReorderButton("Aşağı taşı", reorder.index === reorder.total - 1, () => reorder.onMove(1))
+      createReorderButton("up", reorder.index === 0, () => reorder.onMove(-1)),
+      createReorderButton("down", reorder.index === reorder.total - 1, () => reorder.onMove(1))
     );
   }
 
   const removeBtn = document.createElement("button");
   removeBtn.type = "button";
   removeBtn.className = "btn btn-danger btn-sm";
-  removeBtn.textContent = "Sil";
+  removeBtn.textContent = t("delete");
   removeBtn.addEventListener("click", onRemove);
   actions.appendChild(removeBtn);
 
@@ -663,7 +694,7 @@ function renderExperiences() {
   els.experiencesList.innerHTML = "";
   const total = content.experiences.length;
   content.experiences.forEach((exp, index) => {
-    const card = createCard(`Deneyim ${index + 1}`, () => {
+    const card = createCard(t("experienceN", { n: index + 1 }), () => {
       content.experiences.splice(index, 1);
       renderExperiences();
       schedulePreview();
@@ -671,14 +702,14 @@ function renderExperiences() {
       const fields = document.createElement("div");
       fields.className = "card-grid";
       fields.append(
-        bindInput("Unvan", exp.title, (v) => (exp.title = v)),
-        bindInput("Şirket", exp.company, (v) => (exp.company = v)),
-        bindInput("Başlangıç", exp.startDate, (v) => (exp.startDate = v)),
-        bindInput("Bitiş", exp.endDate, (v) => (exp.endDate = v)),
-        bindInput("Süre", exp.duration, (v) => (exp.duration = v)),
-        bindInput("Konum", exp.location, (v) => (exp.location = v)),
-        bindInput("Şirket Açıklaması", exp.description, (v) => (exp.description = v), { type: "textarea", rows: 2 }),
-        bindInput("Maddeler (her satır bir madde)", (exp.highlights || []).join("\n"), (v) => {
+        bindInput(t("title"), exp.title, (v) => (exp.title = v)),
+        bindInput(t("company"), exp.company, (v) => (exp.company = v)),
+        bindInput(t("startDate"), exp.startDate, (v) => (exp.startDate = v)),
+        bindInput(t("endDate"), exp.endDate, (v) => (exp.endDate = v)),
+        bindInput(t("duration"), exp.duration, (v) => (exp.duration = v)),
+        bindInput(t("location"), exp.location, (v) => (exp.location = v)),
+        bindInput(t("companyDescription"), exp.description, (v) => (exp.description = v), { type: "textarea", rows: 2 }),
+        bindInput(t("highlights"), (exp.highlights || []).join("\n"), (v) => {
           exp.highlights = v.split("\n").map((line) => line.trim()).filter(Boolean);
         }, { type: "textarea", rows: 4 })
       );
@@ -703,7 +734,7 @@ function renderEducation() {
   els.educationList.innerHTML = "";
   const total = content.education.length;
   content.education.forEach((edu, index) => {
-    const card = createCard(`Eğitim ${index + 1}`, () => {
+    const card = createCard(t("educationN", { n: index + 1 }), () => {
       content.education.splice(index, 1);
       renderEducation();
       schedulePreview();
@@ -711,11 +742,11 @@ function renderEducation() {
       const fields = document.createElement("div");
       fields.className = "card-grid";
       fields.append(
-        bindInput("Program", edu.degree, (v) => (edu.degree = v)),
-        bindInput("Kurum", edu.school, (v) => (edu.school = v)),
-        bindInput("Başlangıç", edu.startDate, (v) => (edu.startDate = v)),
-        bindInput("Bitiş", edu.endDate, (v) => (edu.endDate = v)),
-        bindInput("Açıklama", edu.description, (v) => (edu.description = v), { type: "textarea", rows: 3 })
+        bindInput(t("program"), edu.degree, (v) => (edu.degree = v)),
+        bindInput(t("institution"), edu.institution, (v) => (edu.institution = v)),
+        bindInput(t("startDate"), edu.startDate, (v) => (edu.startDate = v)),
+        bindInput(t("endDate"), edu.endDate, (v) => (edu.endDate = v)),
+        bindInput(t("description"), edu.description, (v) => (edu.description = v), { type: "textarea", rows: 3 })
       );
       container.appendChild(fields);
     }, {
@@ -738,7 +769,7 @@ function renderProjects() {
   els.projectsList.innerHTML = "";
   const total = content.projects.length;
   content.projects.forEach((project, index) => {
-    const card = createCard(`Proje ${index + 1}`, () => {
+    const card = createCard(t("projectN", { n: index + 1 }), () => {
       content.projects.splice(index, 1);
       renderProjects();
       schedulePreview();
@@ -746,9 +777,9 @@ function renderProjects() {
       const fields = document.createElement("div");
       fields.className = "card-grid";
       fields.append(
-        bindInput("Proje Adı", project.name, (v) => (project.name = v)),
-        bindInput("URL", project.url, (v) => (project.url = v)),
-        bindInput("Açıklama", project.description, (v) => (project.description = v), { type: "textarea", rows: 3 })
+        bindInput(t("projectName"), project.name, (v) => (project.name = v)),
+        bindInput(t("url"), project.url, (v) => (project.url = v)),
+        bindInput(t("description"), project.description, (v) => (project.description = v), { type: "textarea", rows: 3 })
       );
       container.appendChild(fields);
     }, {
@@ -771,7 +802,7 @@ function renderSkillGroups() {
   els.skillGroupsList.innerHTML = "";
   const total = content.skillGroups.length;
   content.skillGroups.forEach((group, index) => {
-    const card = createCard(`Beceri Grubu ${index + 1}`, () => {
+    const card = createCard(t("skillGroupN", { n: index + 1 }), () => {
       content.skillGroups.splice(index, 1);
       renderSkillGroups();
       schedulePreview();
@@ -779,8 +810,8 @@ function renderSkillGroups() {
       const fields = document.createElement("div");
       fields.className = "card-grid";
       fields.append(
-        bindInput("Kategori", group.category, (v) => (group.category = v)),
-        bindInput("Beceriler (her satır bir beceri)", (group.skills || []).join("\n"), (v) => {
+        bindInput(t("category"), group.category, (v) => (group.category = v)),
+        bindInput(t("skillsPerLine"), (group.skills || []).join("\n"), (v) => {
           group.skills = v.split("\n").map((line) => line.trim()).filter(Boolean);
         }, { type: "textarea", rows: 5 })
       );
@@ -817,7 +848,7 @@ function collectProfileFromForm(options = {}) {
   const content = state.profile[activeContentKey(editingLang)] || emptyLocalizedContent();
   state.profile[activeContentKey(editingLang)] = content;
 
-  state.profile.name = els.profileName.value.trim() || "Yeni CV";
+  state.profile.name = els.profileName.value.trim() || t("newCv");
   if (!options.skipLanguageUpdate && els.cvLanguage) {
     state.profile.language = els.cvLanguage.value === "en" ? "en" : "tr";
   }
@@ -895,7 +926,7 @@ async function saveProfile() {
   try {
     const saved = await API.updateProfile(state.currentId, profile);
     state.profile = saved;
-    showToast("Profil kaydedildi");
+    showToast(t("profileSaved"));
     const profiles = await API.listProfiles();
     renderProfileSelect(profiles);
     els.profileSelect.value = String(state.currentId);
@@ -915,18 +946,37 @@ async function createNewProfile() {
   els.profileSelect.value = String(created.id);
   renderForm();
   await updatePreview();
-  showToast("Yeni profil oluşturuldu");
+  showToast(t("newProfileCreated"));
+}
+
+async function duplicateCurrentProfile() {
+  if (!state.currentId) return;
+
+  try {
+    const duplicated = await API.duplicateProfile(state.currentId);
+    state.currentId = duplicated.id;
+    state.profile = duplicated;
+    normalizeProfile(state.profile);
+    const profiles = await API.listProfiles();
+    renderProfileSelect(profiles);
+    els.profileSelect.value = String(duplicated.id);
+    renderForm();
+    await updatePreview();
+    showToast(t("profileDuplicated"));
+  } catch (error) {
+    showToast(error.message);
+  }
 }
 
 async function deleteCurrentProfile() {
   if (!state.currentId) return;
-  if (!confirm("Bu profili silmek istediğinize emin misiniz?")) return;
+  if (!confirm(t("confirmDelete"))) return;
 
   try {
     await API.deleteProfile(state.currentId);
     state.currentId = null;
     await loadProfiles();
-    showToast("Profil silindi");
+    showToast(t("profileDeleted"));
   } catch (error) {
     showToast(error.message);
   }
@@ -939,39 +989,54 @@ async function translateProfile(targetLang) {
   const sourceLang = targetLang === "en" ? "tr" : "en";
   const sourceContent = state.profile[activeContentKey(sourceLang)];
   if (isContentEmpty(sourceContent)) {
-    showToast(sourceLang === "tr" ? "Önce Türkçe içerik girin" : "Önce İngilizce içerik girin");
+    showToast(sourceLang === "tr" ? t("enterTrContent") : t("enterEnContent"));
     return;
   }
 
   const btn = targetLang === "en" ? els.translateBtn : els.translateToTrBtn;
-  const defaultLabel = targetLang === "en" ? "İngilizceye Çevir" : "Türkçeye Çevir";
+  const otherBtn = targetLang === "en" ? els.translateToTrBtn : els.translateBtn;
+  const defaultLabel = targetLang === "en" ? t("translateToEn") : t("translateToTr");
+
+  const provider = getTranslateProvider();
+  showSection("ai-assistant");
+  window.AIChat?.startTranslateProgress?.();
 
   try {
     if (btn) {
       btn.disabled = true;
-      btn.textContent = "Çevriliyor...";
+      btn.textContent = t("translating");
     }
+    if (otherBtn) otherBtn.disabled = true;
     saveApiKey(API_KEY_CONFIG[0]);
 
     await API.updateProfile(state.currentId, state.profile);
 
     const translated = await API.translateProfile(state.currentId, {
       targetLang,
-      apiKey: getGoogleApiKey(),
+      apiKey: provider === "openai" ? getOpenAIApiKey() : getGoogleApiKey(),
+      provider,
+      model: localStorage.getItem("openaiSelectedModel") || "gpt-4o-mini",
+    });
+
+    window.AIChat?.completeTranslateProgress?.(true, translated.costUSD || 0, null, {
+      provider,
+      usage: translated.usage,
     });
 
     state.profile = translated;
     normalizeProfile(state.profile);
     renderForm();
     await updatePreview();
-    showToast(targetLang === "en" ? "CV İngilizceye çevrildi" : "CV Türkçeye çevrildi");
+    showToast(targetLang === "en" ? t("cvTranslatedEn") : t("cvTranslatedTr"));
   } catch (error) {
+    window.AIChat?.completeTranslateProgress?.(false, 0, error.message);
     showToast(error.message);
   } finally {
     if (btn) {
       btn.disabled = false;
       btn.textContent = defaultLabel;
     }
+    if (otherBtn) otherBtn.disabled = false;
   }
 }
 
@@ -979,14 +1044,64 @@ async function downloadPDF() {
   const profile = collectProfileFromForm();
   try {
     els.pdfBtn.disabled = true;
-    els.pdfBtn.textContent = "PDF hazırlanıyor...";
+    els.pdfBtn.textContent = t("pdfPreparing");
     await API.downloadPDF(profile);
-    showToast("PDF indirildi");
+    showToast(t("pdfDownloaded"));
   } catch (error) {
     showToast(error.message);
   } finally {
     els.pdfBtn.disabled = false;
-    els.pdfBtn.textContent = "PDF İndir";
+    els.pdfBtn.textContent = t("pdfDownload");
+  }
+}
+
+async function exportCurrentProfileBackup() {
+  if (!state.currentId) {
+    showToast(t("selectProfileFirst"));
+    return;
+  }
+
+  try {
+    const profile = collectProfileFromForm();
+    await API.exportCurrentProfile(state.currentId, profile.name || state.profile?.name);
+  } catch (error) {
+    showToast(t("exportProfileError") + (error.message ? `: ${error.message}` : ""));
+  }
+}
+
+async function exportAllProfilesBackup() {
+  try {
+    await API.exportAllProfiles();
+  } catch (error) {
+    showToast(t("exportAllError") + (error.message ? `: ${error.message}` : ""));
+  }
+}
+
+async function handleImportBackup(file) {
+  if (!file) return;
+
+  const merge = window.confirm(t("importMergeConfirm"));
+  let mode = "merge";
+  if (!merge) {
+    if (!window.confirm(t("importReplaceConfirm"))) {
+      return;
+    }
+    mode = "replace";
+  }
+
+  try {
+    const result = await API.importProfiles(file, mode);
+    const imported = Array.isArray(result?.profiles) ? result.profiles : [];
+    const selectId = imported[0]?.id;
+    await loadProfiles(selectId);
+    const count = result?.count ?? imported.length;
+    showToast(t("importSuccess", { count }));
+  } catch (error) {
+    showToast(t("importError", { error: error.message || t("unknownError") }));
+  } finally {
+    if (els.importProfileInput) {
+      els.importProfileInput.value = "";
+    }
   }
 }
 
@@ -997,7 +1112,7 @@ async function handlePhotoUpload(file) {
     state.profile = updated;
     renderPhoto();
     schedulePreview();
-    showToast("Fotoğraf yüklendi");
+    showToast(t("photoUploaded"));
   } catch (error) {
     showToast(error.message);
   }
@@ -1019,8 +1134,18 @@ function initEventListeners() {
   API_KEY_CONFIG.forEach((config) => {
     const input = getApiKeyInput(config.inputId);
     if (!input) return;
-    input.addEventListener("change", () => saveApiKey(config));
-    input.addEventListener("blur", () => saveApiKey(config));
+    input.addEventListener("change", () => {
+      saveApiKey(config);
+      if (config.storageKey === "openaiApiKey") {
+        window.AIChat?.loadModels?.({ silent: true });
+      }
+    });
+    input.addEventListener("blur", () => {
+      saveApiKey(config);
+      if (config.storageKey === "openaiApiKey") {
+        window.AIChat?.loadModels?.({ silent: true });
+      }
+    });
     input.addEventListener("input", () => updateApiKeyStatus(config));
   });
 
@@ -1028,9 +1153,18 @@ function initEventListeners() {
   els.translateToTrBtn?.addEventListener("click", () => translateProfile("tr"));
 
   els.newProfileBtn.addEventListener("click", createNewProfile);
+  els.duplicateProfileBtn.addEventListener("click", duplicateCurrentProfile);
   els.deleteProfileBtn.addEventListener("click", deleteCurrentProfile);
   els.saveBtn.addEventListener("click", saveProfile);
   els.pdfBtn.addEventListener("click", downloadPDF);
+  els.exportProfileBtn?.addEventListener("click", exportCurrentProfileBackup);
+  els.exportAllBtn?.addEventListener("click", exportAllProfilesBackup);
+  els.importProfileInput?.addEventListener("change", (event) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleImportBackup(file);
+    }
+  });
 
   els.profileName.addEventListener("input", schedulePreview);
   document.querySelectorAll("[data-field]").forEach((input) => {
@@ -1059,7 +1193,7 @@ function initEventListeners() {
       } else if (type === "education") {
         content.education.push({
           degree: "",
-          school: "",
+          institution: "",
           startDate: "",
           endDate: "",
           description: "",
@@ -1104,7 +1238,7 @@ function initEventListeners() {
     if (state.currentId) {
       try {
         await API.updateProfile(state.currentId, collectProfileFromForm());
-        showToast("Fotoğraf kaldırıldı");
+        showToast(t("photoRemoved"));
       } catch (error) {
         showToast(error.message);
       }
@@ -1112,7 +1246,81 @@ function initEventListeners() {
   });
 }
 
+async function onProfileUpdated(profile) {
+  state.currentId = profile.id;
+  state.profile = profile;
+  normalizeProfile(state.profile);
+  const profiles = await API.listProfiles();
+  renderProfileSelect(profiles);
+  els.profileSelect.value = String(profile.id);
+  renderForm();
+  await updatePreview();
+}
+
+async function onAIChatResult(response) {
+  const profile = response.profile;
+  if (!profile?.id) {
+    if (response.profileId) {
+      await loadProfiles(response.profileId);
+    }
+    return;
+  }
+
+  state.currentId = profile.id;
+  state.profile = profile;
+  normalizeProfile(state.profile);
+
+  if (response.language === "en" || response.language === "tr") {
+    state.profile.language = response.language;
+    if (els.cvLanguage) {
+      els.cvLanguage.value = response.language;
+    }
+  }
+
+  const profiles = await API.listProfiles();
+  renderProfileSelect(profiles);
+  els.profileSelect.value = String(profile.id);
+  renderForm();
+  await updatePreview();
+
+  const createAction = (response.actions || []).find(
+    (a) => a.tool === "create_profile" && a.status === "success",
+  );
+  const translateAction = (response.actions || []).find(
+    (a) => a.tool === "translate_profile" && a.status === "success",
+  );
+
+  if (createAction) {
+    showToast(t("newProfileCreatedNamed", { name: profile.name }));
+  } else if (translateAction) {
+    showToast(response.language === "en" ? t("profileTranslatedEn") : t("profileTranslatedTr"));
+  } else if (response.profileUpdated) {
+    showToast(t("profileUpdatedToast"));
+  }
+}
+
+window.CVEditor = {
+  getCurrentProfileId: () => state.currentId,
+  getEditingLanguage: () => (state.profile?.language === "en" ? "en" : "tr"),
+  getProfile: () => state.profile,
+  getOpenAIApiKey,
+  isOpenAIConfigured,
+  showToast,
+  onProfileUpdated,
+  onAIChatResult,
+  showSection,
+};
+
+function onAppLanguageChange() {
+  applyTheme(getStoredTheme());
+  updateLanguageUI();
+  updateAllApiKeyStatuses();
+  renderAllLists();
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
+  window.I18n?.initI18n();
+  window.I18n?.onLanguageChange(onAppLanguageChange);
   initTheme();
   loadApiKeysFromStorage();
   initSectionNav();
@@ -1120,6 +1328,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     await loadEnvSettings();
     await loadProfiles();
+    window.AIChat?.loadModels?.({ silent: true });
   } catch (error) {
     showToast(error.message);
   }

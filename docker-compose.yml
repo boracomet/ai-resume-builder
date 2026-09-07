@@ -1,5 +1,5 @@
 services:
-  cv-builder:
+  ai-resume-builder:
     build: .
     ports:
       - "8080:8080"

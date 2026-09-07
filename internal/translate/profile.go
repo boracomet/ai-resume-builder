@@ -1,12 +1,45 @@
 package translate
 
 import (
+	"regexp"
 	"strings"
 
-	"github.com/boradev/bora-cv/internal/models"
+	"github.com/boracomet/ai-resume-builder/internal/models"
+	"github.com/boracomet/ai-resume-builder/internal/openaiusage"
 )
 
+var yearOnlyRe = regexp.MustCompile(`^\d{4}$`)
+
+var educationStatusTranslations = map[string]map[string]string{
+	"devam ediyor": {"en": "Ongoing"},
+	"ongoing":      {"tr": "Devam Ediyor"},
+	"present":      {"tr": "Devam Ediyor"},
+}
+
+type TranslateFn func(texts []string, source, target string) ([]string, error)
+
 func TranslateProfile(profile *models.CVProfile, source, target, apiKey string) error {
+	return TranslateProfileWith(profile, source, target, func(texts []string, src, tgt string) ([]string, error) {
+		return TranslateTexts(texts, src, tgt, apiKey)
+	})
+}
+
+func TranslateProfileWithOpenAI(profile *models.CVProfile, source, target, apiKey, model string) (openaiusage.Usage, float64, error) {
+	var totalUsage openaiusage.Usage
+	var totalCost float64
+	err := TranslateProfileWith(profile, source, target, func(texts []string, src, tgt string) ([]string, error) {
+		translated, usage, cost, err := TranslateTextsWithOpenAI(texts, src, tgt, apiKey, model)
+		if err != nil {
+			return nil, err
+		}
+		totalUsage = totalUsage.Add(usage)
+		totalCost += cost
+		return translated, nil
+	})
+	return totalUsage, totalCost, err
+}
+
+func TranslateProfileWith(profile *models.CVProfile, source, target string, translateFn TranslateFn) error {
 	profile.Normalize()
 
 	sourceContent := profile.ContentForLang(source)
@@ -16,7 +49,7 @@ func TranslateProfile(profile *models.CVProfile, source, target, apiKey string) 
 		return nil
 	}
 
-	translated, err := translateContent(sourceContent, source, target, apiKey)
+	translated, err := translateContentWith(sourceContent, source, target, translateFn)
 	if err != nil {
 		return err
 	}
@@ -33,6 +66,12 @@ func TranslateProfile(profile *models.CVProfile, source, target, apiKey string) 
 }
 
 func translateContent(content *models.LocalizedContent, source, target, apiKey string) (models.LocalizedContent, error) {
+	return translateContentWith(content, source, target, func(texts []string, src, tgt string) ([]string, error) {
+		return TranslateTexts(texts, src, tgt, apiKey)
+	})
+}
+
+func translateContentWith(content *models.LocalizedContent, source, target string, translateFn TranslateFn) (models.LocalizedContent, error) {
 	var texts []string
 	var apply []func(string)
 
@@ -74,9 +113,17 @@ func translateContent(content *models.LocalizedContent, source, target, apiKey s
 	for i := range result.Education {
 		edu := &result.Education[i]
 		add(edu.Degree, func(v string) { edu.Degree = v })
-		add(edu.School, func(v string) { edu.School = v })
-		add(edu.StartDate, func(v string) { edu.StartDate = v })
-		add(edu.EndDate, func(v string) { edu.EndDate = v })
+		add(edu.Institution, func(v string) { edu.Institution = v })
+		if mapped, ok := translateEducationScalar(edu.StartDate, target); ok {
+			edu.StartDate = mapped
+		} else {
+			add(edu.StartDate, func(v string) { edu.StartDate = v })
+		}
+		if mapped, ok := translateEducationScalar(edu.EndDate, target); ok {
+			edu.EndDate = mapped
+		} else {
+			add(edu.EndDate, func(v string) { edu.EndDate = v })
+		}
 		add(edu.Description, func(v string) { edu.Description = v })
 	}
 
@@ -95,7 +142,7 @@ func translateContent(content *models.LocalizedContent, source, target, apiKey s
 		return result, nil
 	}
 
-	translated, err := TranslateTexts(texts, source, target, apiKey)
+	translated, err := translateFn(texts, source, target)
 	if err != nil {
 		return models.LocalizedContent{}, err
 	}
@@ -105,4 +152,21 @@ func translateContent(content *models.LocalizedContent, source, target, apiKey s
 	}
 
 	return result, nil
+}
+
+func translateEducationScalar(value, target string) (string, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", false
+	}
+	if yearOnlyRe.MatchString(value) {
+		return value, true
+	}
+	key := strings.ToLower(value)
+	if translations, ok := educationStatusTranslations[key]; ok {
+		if mapped, ok := translations[target]; ok {
+			return mapped, true
+		}
+	}
+	return "", false
 }

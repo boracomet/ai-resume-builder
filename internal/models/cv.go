@@ -33,10 +33,41 @@ type Experience struct {
 
 type Education struct {
 	Degree      string `json:"degree"`
-	School      string `json:"school"`
+	Institution string `json:"institution"`
 	StartDate   string `json:"startDate"`
 	EndDate     string `json:"endDate"`
 	Description string `json:"description"`
+}
+
+func (e *Education) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	unmarshalField := func(key string, dest *string) {
+		if value, ok := raw[key]; ok {
+			_ = json.Unmarshal(value, dest)
+		}
+	}
+	unmarshalField("degree", &e.Degree)
+	unmarshalField("institution", &e.Institution)
+	unmarshalField("startDate", &e.StartDate)
+	unmarshalField("endDate", &e.EndDate)
+	unmarshalField("description", &e.Description)
+	if strings.TrimSpace(e.Institution) == "" {
+		unmarshalField("school", &e.Institution)
+	}
+	return nil
+}
+
+func (e Education) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]string{
+		"degree":      e.Degree,
+		"institution": e.Institution,
+		"startDate":   e.StartDate,
+		"endDate":     e.EndDate,
+		"description": e.Description,
+	})
 }
 
 type Project struct {
@@ -286,4 +317,36 @@ type ProfileSummary struct {
 	ID        int64     `json:"id"`
 	Name      string    `json:"name"`
 	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+type ProfileCopyOptions struct {
+	CopyPhoto     bool     `json:"copyPhoto"`
+	CopyPersonal  bool     `json:"copyPersonal"`
+	CopyContentTR bool     `json:"copyContentTR"`
+	CopyContentEN bool     `json:"copyContentEN"`
+	Sections      []string `json:"sections"`
+}
+
+func (o ProfileCopyOptions) CopiesAllContent() bool {
+	if len(o.Sections) == 0 {
+		return o.CopyContentTR || o.CopyContentEN
+	}
+	for _, section := range o.Sections {
+		if strings.EqualFold(strings.TrimSpace(section), "all_content") {
+			return true
+		}
+	}
+	return false
+}
+
+func (o ProfileCopyOptions) WantsSection(name string) bool {
+	if o.CopiesAllContent() {
+		return true
+	}
+	for _, section := range o.Sections {
+		if strings.EqualFold(strings.TrimSpace(section), name) {
+			return true
+		}
+	}
+	return false
 }

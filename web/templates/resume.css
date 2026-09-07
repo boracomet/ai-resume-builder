@@ -1,3 +1,8 @@
+:root {
+  --radius: 0;
+  --radius-avatar: 50%;
+}
+
 @page {
   size: A4;
   margin: 12mm 15mm;
@@ -84,7 +89,7 @@ body {
 }
 
 .cv-photo {
-  border-radius: 50%;
+  border-radius: var(--radius-avatar);
   object-fit: cover;
   display: block;
 }
@@ -207,7 +212,7 @@ body {
 .cv-skill-pill {
   display: inline-block;
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius);
   background: #eff6ff;
   color: #1d4ed8;
   font-size: 8.5pt;

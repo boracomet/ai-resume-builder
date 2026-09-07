@@ -3,8 +3,8 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/boradev/bora-cv/internal/models"
-	"github.com/boradev/bora-cv/internal/render"
+	"github.com/boracomet/ai-resume-builder/internal/models"
+	"github.com/boracomet/ai-resume-builder/internal/render"
 	"github.com/gin-gonic/gin"
 )
 
