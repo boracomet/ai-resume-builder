@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ATA CV Builder</title>
+  <script>
+    (function () {
+      var theme = localStorage.getItem("theme");
+      if (theme === "dark" || theme === "light") {
+        document.documentElement.setAttribute("data-theme", theme);
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="/static/css/editor.css">
+</head>
+<body>
+  <div class="app">
+    <header class="toolbar">
+      <div class="toolbar__section toolbar__section--left">
+        <div class="toolbar__brand">
+          <span class="toolbar__logo" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+          </span>
+          <h1 class="app-title">ATA CV Builder</h1>
+        </div>
+
+        <div class="profile-controls">
+          <select id="profileSelect" class="toolbar-select" aria-label="Profil seç"></select>
+          <button type="button" id="newProfileBtn" class="btn btn-icon-only" title="Yeni profil" aria-label="Yeni profil">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </button>
+          <button type="button" id="deleteProfileBtn" class="btn btn-icon-only btn-icon-danger" title="Profili sil" aria-label="Profili sil">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="toolbar__divider" aria-hidden="true"></div>
+
+      <div class="toolbar__section toolbar__section--center">
+        <div class="toolbar__lang">
+          <label class="toolbar__lang-label" for="cvLanguage">Düzenleme Dili</label>
+          <select id="cvLanguage" class="toolbar-select toolbar-select--compact" aria-label="Düzenleme dili">
+            <option value="tr">Türkçe</option>
+            <option value="en">English</option>
+          </select>
+          <span id="languageEmptyHint" class="language-empty-hint hidden" aria-live="polite">İngilizce içerik henüz oluşturulmadı</span>
+        </div>
+        <button type="button" id="translateBtn" class="btn btn-outline">İngilizceye Çevir</button>
+        <button type="button" id="translateToTrBtn" class="btn btn-outline hidden">Türkçeye Çevir</button>
+      </div>
+
+      <div class="toolbar__divider" aria-hidden="true"></div>
+
+      <div class="toolbar__section toolbar__section--right">
+        <button type="button" id="saveBtn" class="btn btn-primary">Kaydet</button>
+        <button type="button" id="pdfBtn" class="btn btn-outline btn-outline--strong">PDF İndir</button>
+
+        <button type="button" id="themeToggle" class="btn btn-icon-only theme-btn" title="Karanlık mod" aria-label="Karanlık mod">
+          <svg class="theme-btn__icon theme-btn__icon--moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+          <svg class="theme-btn__icon theme-btn__icon--sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/>
+            <line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <aside class="editor-panel">
+        <nav class="editor-sidebar" aria-label="Form bölümleri">
+          <button type="button" class="editor-nav-item is-active" data-section="general">Genel Ayarlar</button>
+          <button type="button" class="editor-nav-item" data-section="personal">Kişisel Bilgiler</button>
+          <button type="button" class="editor-nav-item" data-section="summary">Özet</button>
+          <button type="button" class="editor-nav-item" data-section="experience">Deneyim</button>
+          <button type="button" class="editor-nav-item" data-section="education">Eğitim</button>
+          <button type="button" class="editor-nav-item" data-section="projects">Projeler</button>
+          <button type="button" class="editor-nav-item" data-section="skills">Beceriler</button>
+          <button type="button" class="editor-nav-item" data-section="photo">Profil Fotoğrafı</button>
+          <button type="button" class="editor-nav-item" data-section="api-keys">API Anahtarları</button>
+        </nav>
+
+        <div class="editor-content">
+          <form id="cvForm" class="cv-form">
+          <section class="form-section is-active" data-section-id="general">
+            <h2>Genel Ayarlar</h2>
+            <label for="profileName">Profil Adı</label>
+            <input type="text" id="profileName" name="profileName" placeholder="Örn: İş Başvurusu">
+            <p class="form-hint">Düzenleme dili ve çeviri seçenekleri üst araç çubuğundan yönetilir.</p>
+          </section>
+
+          <section class="form-section" data-section-id="personal">
+            <h2>Kişisel Bilgiler</h2>
+            <div class="form-grid">
+              <label>Ad Soyad<input type="text" data-field="personal.name"></label>
+              <label>Unvan<input type="text" data-localized="personalTitle"></label>
+              <label>E-posta<input type="email" data-field="personal.email"></label>
+              <label>Telefon<input type="text" data-field="personal.phone"></label>
+              <label>LinkedIn<input type="text" data-field="personal.linkedin"></label>
+              <label>GitHub<input type="text" data-field="personal.github"></label>
+              <label>Portfolyo<input type="text" data-field="personal.portfolio"></label>
+              <label>Konum<input type="text" data-field="personal.location"></label>
+              <label>Doğum Tarihi<input type="text" data-field="personal.birthDate"></label>
+              <label>Diller<input type="text" data-localized="personalLanguages"></label>
+            </div>
+          </section>
+
+          <section class="form-section" data-section-id="summary">
+            <h2>Özet</h2>
+            <textarea rows="4" data-localized="summary" placeholder="Kısa profesyonel özet"></textarea>
+          </section>
+
+          <section class="form-section" data-section-id="experience">
+            <div class="section-header">
+              <h2>Deneyim</h2>
+              <button type="button" class="btn btn-secondary btn-sm" data-add="experiences">+ Ekle</button>
+            </div>
+            <div id="experiencesList" class="dynamic-list"></div>
+          </section>
+
+          <section class="form-section" data-section-id="education">
+            <div class="section-header">
+              <h2>Eğitim</h2>
+              <button type="button" class="btn btn-secondary btn-sm" data-add="education">+ Ekle</button>
+            </div>
+            <div id="educationList" class="dynamic-list"></div>
+          </section>
+
+          <section class="form-section" data-section-id="projects">
+            <div class="section-header">
+              <h2>Projeler</h2>
+              <button type="button" class="btn btn-secondary btn-sm" data-add="projects">+ Ekle</button>
+            </div>
+            <div id="projectsList" class="dynamic-list"></div>
+          </section>
+
+          <section class="form-section" data-section-id="skills">
+            <div class="section-header">
+              <h2>Beceriler</h2>
+              <button type="button" class="btn btn-secondary btn-sm" data-add="skillGroups">+ Grup Ekle</button>
+            </div>
+            <div id="skillGroupsList" class="dynamic-list"></div>
+          </section>
+
+          <section class="form-section" data-section-id="photo">
+            <h2>Profil Fotoğrafı</h2>
+            <div class="photo-upload">
+              <input type="file" id="photoInput" accept="image/*">
+              <div id="photoPreview" class="photo-preview hidden">
+                <img id="photoPreviewImg" class="photo-thumb-preview" alt="Profil fotoğrafı önizleme">
+                <button type="button" id="removePhotoBtn" class="btn btn-secondary btn-sm">Kaldır</button>
+              </div>
+            </div>
+            <div class="photo-settings">
+              <label class="photo-setting">
+                Boyut
+                <div class="photo-setting-control">
+                  <input type="range" id="photoSize" data-field="photoSize" min="60" max="150" step="1" value="96">
+                  <output id="photoSizeValue" for="photoSize">96 px</output>
+                </div>
+              </label>
+              <label class="photo-setting">
+                Çerçeve kalınlığı
+                <div class="photo-setting-control">
+                  <input type="range" id="photoBorderWidth" data-field="photoBorderWidth" min="0" max="10" step="1" value="2">
+                  <output id="photoBorderWidthValue" for="photoBorderWidth">2 px</output>
+                </div>
+              </label>
+              <label class="photo-setting photo-setting-color">
+                Çerçeve rengi
+                <input type="color" id="photoBorderColor" data-field="photoBorderColor" value="#2563eb">
+              </label>
+            </div>
+          </section>
+
+          <section class="form-section" data-section-id="api-keys">
+            <h2>API Anahtarları</h2>
+            <div class="api-key-grid">
+              <div class="api-key-field">
+                <label for="googleApiKey">Google Translate</label>
+                <input type="password" id="googleApiKey" placeholder="API anahtarı" autocomplete="off">
+                <span id="googleApiKeyStatus" class="api-key-status" aria-live="polite"></span>
+              </div>
+              <div class="api-key-field">
+                <label for="openaiApiKey">OpenAI</label>
+                <input type="password" id="openaiApiKey" placeholder="API anahtarı" autocomplete="off">
+                <span id="openaiApiKeyStatus" class="api-key-status" aria-live="polite"></span>
+              </div>
+              <div class="api-key-field">
+                <label for="googleGeminiApiKey">Google Gemini</label>
+                <input type="password" id="googleGeminiApiKey" placeholder="API anahtarı" autocomplete="off">
+                <span id="googleGeminiApiKeyStatus" class="api-key-status" aria-live="polite"></span>
+              </div>
+              <div class="api-key-field">
+                <label for="xiaomiApiKey">Xiaomi</label>
+                <input type="password" id="xiaomiApiKey" placeholder="API anahtarı" autocomplete="off">
+                <span id="xiaomiApiKeyStatus" class="api-key-status" aria-live="polite"></span>
+              </div>
+            </div>
+            <p class="form-hint">Anahtarlar sunucuda <code>.env</code> ile yapılandırılabilir. Tarayıcıda girilen değerler localStorage'a kaydedilir ve sunucu anahtarına göre önceliklidir.</p>
+          </section>
+        </form>
+        </div>
+      </aside>
+
+      <section class="preview-panel">
+        <div class="preview-header">Canlı Önizleme</div>
+        <div class="preview-frame-wrap">
+          <iframe id="previewFrame" title="CV Önizleme"></iframe>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/editor.js"></script>
+</body>
+</html>

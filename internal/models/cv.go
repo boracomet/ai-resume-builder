@@ -1,0 +1,289 @@
+package models
+
+import (
+	"encoding/json"
+	"strings"
+	"time"
+)
+
+type PersonalInfo struct {
+	Name      string `json:"name"`
+	Email     string `json:"email"`
+	Phone     string `json:"phone"`
+	LinkedIn  string `json:"linkedin"`
+	GitHub    string `json:"github"`
+	Portfolio string `json:"portfolio"`
+	Location  string `json:"location"`
+	BirthDate string `json:"birthDate"`
+	// Legacy fields kept for migration from old single-language profiles.
+	Title     string `json:"title,omitempty"`
+	Languages string `json:"languages,omitempty"`
+}
+
+type Experience struct {
+	Title       string   `json:"title"`
+	Company     string   `json:"company"`
+	StartDate   string   `json:"startDate"`
+	EndDate     string   `json:"endDate"`
+	Duration    string   `json:"duration"`
+	Location    string   `json:"location"`
+	Description string   `json:"description"`
+	Highlights  []string `json:"highlights"`
+}
+
+type Education struct {
+	Degree      string `json:"degree"`
+	School      string `json:"school"`
+	StartDate   string `json:"startDate"`
+	EndDate     string `json:"endDate"`
+	Description string `json:"description"`
+}
+
+type Project struct {
+	Name        string `json:"name"`
+	URL         string `json:"url"`
+	Description string `json:"description"`
+}
+
+type SkillGroup struct {
+	Category string   `json:"category"`
+	Skills   []string `json:"skills"`
+}
+
+type LocalizedContent struct {
+	Summary           string       `json:"summary"`
+	Experiences       []Experience `json:"experiences"`
+	Education         []Education  `json:"education"`
+	Projects          []Project    `json:"projects"`
+	SkillGroups       []SkillGroup `json:"skillGroups"`
+	PersonalTitle     string       `json:"personalTitle"`
+	PersonalLanguages string       `json:"personalLanguages"`
+}
+
+const (
+	DefaultPhotoSize        = 96
+	DefaultPhotoBorderWidth = 2
+	DefaultPhotoBorderColor = "#2563eb"
+)
+
+type CVProfile struct {
+	ID               int64            `json:"id"`
+	Name             string           `json:"name"`
+	Language         string           `json:"language"`
+	Personal         PersonalInfo     `json:"personal"`
+	ContentTR        LocalizedContent `json:"contentTR"`
+	ContentEN        LocalizedContent `json:"contentEN"`
+	PhotoBase64      string           `json:"photoBase64"`
+	PhotoSize        int              `json:"photoSize"`
+	PhotoBorderWidth int              `json:"photoBorderWidth"`
+	PhotoBorderColor string           `json:"photoBorderColor"`
+	CreatedAt        time.Time        `json:"createdAt"`
+	UpdatedAt        time.Time        `json:"updatedAt"`
+
+	// Legacy single-language fields (migrated into ContentTR on load).
+	Summary     string       `json:"summary,omitempty"`
+	Experiences []Experience `json:"experiences,omitempty"`
+	Education   []Education  `json:"education,omitempty"`
+	Projects    []Project    `json:"projects,omitempty"`
+	SkillGroups []SkillGroup `json:"skillGroups,omitempty"`
+}
+
+func EmptyLocalizedContent() LocalizedContent {
+	return LocalizedContent{
+		Experiences: []Experience{},
+		Education:   []Education{},
+		Projects:    []Project{},
+		SkillGroups: []SkillGroup{},
+	}
+}
+
+func (c *LocalizedContent) IsEmpty() bool {
+	if c == nil {
+		return true
+	}
+	if strings.TrimSpace(c.Summary) != "" ||
+		strings.TrimSpace(c.PersonalTitle) != "" ||
+		strings.TrimSpace(c.PersonalLanguages) != "" {
+		return false
+	}
+	return len(c.Experiences) == 0 &&
+		len(c.Education) == 0 &&
+		len(c.Projects) == 0 &&
+		len(c.SkillGroups) == 0
+}
+
+func (p *CVProfile) ContentForLang(lang string) *LocalizedContent {
+	lang = NormalizeLangCode(lang)
+	if lang == "en" {
+		return &p.ContentEN
+	}
+	return &p.ContentTR
+}
+
+func (p *CVProfile) ActiveContent() *LocalizedContent {
+	return p.ContentForLang(p.Language)
+}
+
+func (p *CVProfile) DisplayTitle() string {
+	return strings.TrimSpace(p.ActiveContent().PersonalTitle)
+}
+
+func (p *CVProfile) DisplayLanguages() string {
+	return strings.TrimSpace(p.ActiveContent().PersonalLanguages)
+}
+
+func (p *CVProfile) DisplaySummary() string {
+	return p.ActiveContent().Summary
+}
+
+func (p *CVProfile) DisplayExperiences() []Experience {
+	content := p.ActiveContent()
+	if content.Experiences == nil {
+		return []Experience{}
+	}
+	return content.Experiences
+}
+
+func (p *CVProfile) DisplayEducation() []Education {
+	content := p.ActiveContent()
+	if content.Education == nil {
+		return []Education{}
+	}
+	return content.Education
+}
+
+func (p *CVProfile) DisplayProjects() []Project {
+	content := p.ActiveContent()
+	if content.Projects == nil {
+		return []Project{}
+	}
+	return content.Projects
+}
+
+func (p *CVProfile) DisplaySkillGroups() []SkillGroup {
+	content := p.ActiveContent()
+	if content.SkillGroups == nil {
+		return []SkillGroup{}
+	}
+	return content.SkillGroups
+}
+
+func NormalizeLangCode(lang string) string {
+	lang = strings.ToLower(strings.TrimSpace(lang))
+	if lang == "en" {
+		return "en"
+	}
+	return "tr"
+}
+
+func (p *CVProfile) NormalizeLanguage() {
+	p.Language = NormalizeLangCode(p.Language)
+}
+
+func (p *CVProfile) Normalize() {
+	p.MigrateFromLegacy()
+	p.NormalizePhotoSettings()
+	p.NormalizeLanguage()
+	p.ensureContentSlices()
+}
+
+func (p *CVProfile) ensureContentSlices() {
+	if p.ContentTR.Experiences == nil {
+		p.ContentTR.Experiences = []Experience{}
+	}
+	if p.ContentTR.Education == nil {
+		p.ContentTR.Education = []Education{}
+	}
+	if p.ContentTR.Projects == nil {
+		p.ContentTR.Projects = []Project{}
+	}
+	if p.ContentTR.SkillGroups == nil {
+		p.ContentTR.SkillGroups = []SkillGroup{}
+	}
+	if p.ContentEN.Experiences == nil {
+		p.ContentEN.Experiences = []Experience{}
+	}
+	if p.ContentEN.Education == nil {
+		p.ContentEN.Education = []Education{}
+	}
+	if p.ContentEN.Projects == nil {
+		p.ContentEN.Projects = []Project{}
+	}
+	if p.ContentEN.SkillGroups == nil {
+		p.ContentEN.SkillGroups = []SkillGroup{}
+	}
+}
+
+func (p *CVProfile) hasLegacyContent() bool {
+	if strings.TrimSpace(p.Summary) != "" {
+		return true
+	}
+	if len(p.Experiences) > 0 || len(p.Education) > 0 || len(p.Projects) > 0 || len(p.SkillGroups) > 0 {
+		return true
+	}
+	if strings.TrimSpace(p.Personal.Title) != "" || strings.TrimSpace(p.Personal.Languages) != "" {
+		return true
+	}
+	return false
+}
+
+func (p *CVProfile) MigrateFromLegacy() {
+	if !p.hasLegacyContent() {
+		return
+	}
+	if !p.ContentTR.IsEmpty() || !p.ContentEN.IsEmpty() {
+		p.clearLegacyFields()
+		return
+	}
+
+	p.ContentTR = LocalizedContent{
+		Summary:           p.Summary,
+		Experiences:       append([]Experience(nil), p.Experiences...),
+		Education:         append([]Education(nil), p.Education...),
+		Projects:          append([]Project(nil), p.Projects...),
+		SkillGroups:       append([]SkillGroup(nil), p.SkillGroups...),
+		PersonalTitle:     p.Personal.Title,
+		PersonalLanguages: p.Personal.Languages,
+	}
+	p.clearLegacyFields()
+}
+
+func (p *CVProfile) clearLegacyFields() {
+	p.Summary = ""
+	p.Experiences = nil
+	p.Education = nil
+	p.Projects = nil
+	p.SkillGroups = nil
+	p.Personal.Title = ""
+	p.Personal.Languages = ""
+}
+
+func (p *CVProfile) NormalizePhotoSettings() {
+	legacy := p.PhotoSize <= 0 && p.PhotoBorderWidth == 0 && p.PhotoBorderColor == ""
+	if p.PhotoSize <= 0 {
+		p.PhotoSize = DefaultPhotoSize
+	}
+	if p.PhotoBorderColor == "" {
+		p.PhotoBorderColor = DefaultPhotoBorderColor
+	}
+	if legacy || p.PhotoBorderWidth < 0 {
+		p.PhotoBorderWidth = DefaultPhotoBorderWidth
+	}
+}
+
+func (p *CVProfile) UnmarshalJSON(data []byte) error {
+	type profileAlias CVProfile
+	aux := (*profileAlias)(p)
+	if err := json.Unmarshal(data, aux); err != nil {
+		return err
+	}
+	p.MigrateFromLegacy()
+	p.ensureContentSlices()
+	return nil
+}
+
+type ProfileSummary struct {
+	ID        int64     `json:"id"`
+	Name      string    `json:"name"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}

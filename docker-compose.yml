@@ -1,0 +1,13 @@
+services:
+  cv-builder:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - cv-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  cv-data:

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="{{ langCode .Profile.Language }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ .Profile.Personal.Name }} - CV</title>
+  <style>{{ .CSS }}</style>
+</head>
+<body>
+  <main class="cv-document">
+    <header class="cv-header">
+      <div class="cv-header-main">
+        <h1 class="cv-name">{{ .Profile.Personal.Name }}</h1>
+        {{ if .Profile.DisplayTitle }}
+        <p class="cv-title">{{ .Profile.DisplayTitle }}</p>
+        {{ end }}
+
+        <div class="cv-contact">
+          {{ if .Profile.Personal.Email }}
+          <span class="cv-contact-item">
+            <a href="{{ fullURL .Profile.Personal.Email }}">{{ displayURL .Profile.Personal.Email }}</a>
+          </span>
+          {{ end }}
+          {{ if .Profile.Personal.Phone }}
+          <span class="cv-contact-item">
+            <span>{{ .Profile.Personal.Phone }}</span>
+          </span>
+          {{ end }}
+          {{ if .Profile.Personal.LinkedIn }}
+          <span class="cv-contact-item">
+            <a href="{{ fullURL .Profile.Personal.LinkedIn }}">{{ displayURL .Profile.Personal.LinkedIn }}</a>
+          </span>
+          {{ end }}
+          {{ if .Profile.Personal.GitHub }}
+          <span class="cv-contact-item">
+            <a href="{{ fullURL .Profile.Personal.GitHub }}">{{ displayURL .Profile.Personal.GitHub }}</a>
+          </span>
+          {{ end }}
+          {{ if .Profile.Personal.Portfolio }}
+          <span class="cv-contact-item">
+            <a href="{{ fullURL .Profile.Personal.Portfolio }}">{{ displayURL .Profile.Personal.Portfolio }}</a>
+          </span>
+          {{ end }}
+          {{ if .Profile.Personal.Location }}
+          <span class="cv-contact-item">
+            <span>{{ .Profile.Personal.Location }}</span>
+          </span>
+          {{ end }}
+        </div>
+
+        <div class="cv-meta">
+          {{ if .Profile.Personal.BirthDate }}
+          <span><strong>{{ t .Profile.Language "birthDate" }}:</strong> {{ .Profile.Personal.BirthDate }}</span>
+          {{ end }}
+          {{ if .Profile.DisplayLanguages }}
+          <span><strong>{{ t .Profile.Language "languages" }}:</strong> {{ .Profile.DisplayLanguages }}</span>
+          {{ end }}
+        </div>
+      </div>
+
+      {{ if .Profile.PhotoBase64 }}
+      <div class="cv-photo-wrap">
+        <img class="cv-photo" src="{{ photoSrc .Profile.PhotoBase64 }}" alt="{{ .Profile.Personal.Name }} {{ t .Profile.Language "photoAlt" }}" style="width: {{ .Profile.PhotoSize }}px; height: {{ .Profile.PhotoSize }}px; border: {{ .Profile.PhotoBorderWidth }}px solid {{ .Profile.PhotoBorderColor }};">
+      </div>
+      {{ end }}
+    </header>
+
+    {{ if .Profile.DisplaySummary }}
+    <section class="cv-section">
+      <h2 class="cv-section-title">{{ t .Profile.Language "summary" }}</h2>
+      <p class="cv-summary">{{ .Profile.DisplaySummary }}</p>
+    </section>
+    {{ end }}
+
+    {{ if .Profile.DisplayExperiences }}
+    <section class="cv-section">
+      <h2 class="cv-section-title">{{ t .Profile.Language "experience" }}</h2>
+      {{ range .Profile.DisplayExperiences }}
+      <article class="cv-entry">
+        <div class="cv-entry-header">
+          <div>
+            <h3 class="cv-entry-title">{{ .Title }}</h3>
+            <p class="cv-entry-subtitle">{{ .Company }}</p>
+          </div>
+          <div class="cv-entry-meta">
+            {{ if or .StartDate .EndDate }}
+            <span class="cv-meta-line">
+              {{ .StartDate }}{{ if and .StartDate .EndDate }} - {{ end }}{{ .EndDate }}{{ if .Duration }} · {{ .Duration }}{{ end }}
+            </span>
+            {{ end }}
+            {{ if .Location }}
+            <span class="cv-meta-line">
+              {{ .Location }}
+            </span>
+            {{ end }}
+          </div>
+        </div>
+        {{ if .Description }}
+        <p class="cv-entry-description">{{ .Description }}</p>
+        {{ end }}
+        {{ if .Highlights }}
+        <ul class="cv-list">
+          {{ range .Highlights }}
+          <li>{{ . }}</li>
+          {{ end }}
+        </ul>
+        {{ end }}
+      </article>
+      {{ end }}
+    </section>
+    {{ end }}
+
+    {{ if .Profile.DisplayEducation }}
+    <section class="cv-section">
+      <h2 class="cv-section-title">{{ t .Profile.Language "education" }}</h2>
+      {{ range .Profile.DisplayEducation }}
+      <article class="cv-entry">
+        <div class="cv-entry-header">
+          <div>
+            <h3 class="cv-entry-title">{{ .Degree }}</h3>
+            <p class="cv-entry-subtitle">{{ .School }}</p>
+          </div>
+          {{ if or .StartDate .EndDate }}
+          <div class="cv-entry-meta">
+            <span class="cv-meta-line">
+              {{ .StartDate }}{{ if and .StartDate .EndDate }} – {{ end }}{{ .EndDate }}
+            </span>
+          </div>
+          {{ end }}
+        </div>
+        {{ if .Description }}
+        <p class="cv-entry-description">{{ .Description }}</p>
+        {{ end }}
+      </article>
+      {{ end }}
+    </section>
+    {{ end }}
+
+    {{ if .Profile.DisplayProjects }}
+    <section class="cv-section">
+      <h2 class="cv-section-title">{{ t .Profile.Language "projects" }}</h2>
+      {{ range .Profile.DisplayProjects }}
+      <article class="cv-entry cv-project">
+        <h3 class="cv-entry-title">{{ .Name }}</h3>
+        {{ if .URL }}
+        <p class="cv-project-link">
+          <a href="{{ fullURL .URL }}">{{ fullURL .URL }}</a>
+        </p>
+        {{ end }}
+        {{ if .Description }}
+        <p class="cv-entry-description">{{ .Description }}</p>
+        {{ end }}
+      </article>
+      {{ end }}
+    </section>
+    {{ end }}
+
+    {{ if .Profile.DisplaySkillGroups }}
+    <section class="cv-section">
+      <h2 class="cv-section-title">{{ t .Profile.Language "skills" }}</h2>
+      {{ range .Profile.DisplaySkillGroups }}
+      <div class="cv-skill-group">
+        <h3 class="cv-skill-category">{{ .Category }}</h3>
+        <ul class="cv-skill-list">
+          {{ range .Skills }}
+          <li class="cv-skill-pill">{{ . }}</li>
+          {{ end }}
+        </ul>
+      </div>
+      {{ end }}
+    </section>
+    {{ end }}
+  </main>
+</body>
+</html>
