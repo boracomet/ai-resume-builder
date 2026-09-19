@@ -133,7 +133,14 @@ const API = {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "resume.pdf";
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    const baseName = (profile?.personal?.name || "resume")
+      .toString()
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-_]/gi, "") || "resume";
+    anchor.download = `${baseName}-${stamp}.pdf`;
     anchor.click();
     URL.revokeObjectURL(url);
   },

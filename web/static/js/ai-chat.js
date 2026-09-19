@@ -53,6 +53,7 @@ const AIChat = {
       lastRequestCostValue: document.getElementById("aiLastRequestCostValue"),
       sessionCostReset: document.getElementById("aiSessionCostReset"),
       apiSetupOpenBtn: document.getElementById("apiSetupOpenBtn"),
+      apiSetupOpenBtnChat: document.getElementById("apiSetupOpenBtnChat"),
       apiSetupModal: document.getElementById("apiSetupModal"),
     };
 
@@ -247,6 +248,7 @@ const AIChat = {
     };
 
     this.els.apiSetupOpenBtn?.addEventListener("click", openModal);
+    this.els.apiSetupOpenBtnChat?.addEventListener("click", openModal);
     modal.querySelectorAll("[data-api-setup-close]").forEach((el) => {
       el.addEventListener("click", closeModal);
     });
@@ -260,6 +262,11 @@ const AIChat = {
   },
 
   navigateToSection() {
+    if (window.CVEditor?.isAiAssistantEnabled && !window.CVEditor.isAiAssistantEnabled()) {
+      window.CVEditor?.showSection?.("settings");
+      window.CVEditor?.showToast?.(window.I18n?.t?.("aiAssistantDisabledToast") || "AI Asistan ayarlardan kapalı");
+      return;
+    }
     if (window.CVEditor?.showSection) {
       window.CVEditor.showSection("ai-assistant");
     }

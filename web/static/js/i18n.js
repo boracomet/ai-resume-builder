@@ -30,8 +30,16 @@ const translations = {
 
     // Sidebar nav
     navProfile: "Profil",
+    navSettings: "Ayarlar",
     navAppSettings: "Uygulama Ayarları",
     navDataBackup: "Veri Yedekleme",
+    navGroupCv: "CV",
+    navGroupApp: "Uygulama",
+    settingsTitle: "Ayarlar",
+    aiAssistantSettings: "AI Asistan",
+    aiAssistantEnabled: "AI Asistanı göster",
+    aiAssistantEnabledHint: "Kapatıldığında sol menüdeki AI Asistan sekmesi ve üstteki AI butonu gizlenir.",
+    aiAssistantDisabledToast: "AI Asistan ayarlardan kapalı. Ayarlar'dan açabilirsiniz.",
     navPersonal: "Kişisel Bilgiler",
     navSummary: "Özet",
     navExperience: "Deneyim",
@@ -257,6 +265,14 @@ const translations = {
     resetSuccess: "Veriler sıfırlandı, örnek profil yüklendi",
     resetError: "Sıfırlama başarısız",
 
+    // Unsaved changes
+    unsavedTitle: "Kaydedilmemiş değişiklikler",
+    unsavedMessage: "Kaydedilmemiş değişiklikleriniz var. Çıkmadan önce kaydetmek ister misiniz?",
+    unsavedSave: "Kaydet",
+    unsavedDiscard: "Kaydetme",
+    unsavedCancel: "İptal",
+    autoSaved: "Otomatik kaydedildi",
+
     // First setup
     welcomeTitle: "AI Resume Builder'a hoş geldiniz",
     welcomeTagline: "ATS uyumlu CV, AI asistan, PDF export",
@@ -288,8 +304,16 @@ const translations = {
     copy: "Copy",
 
     navProfile: "Profile",
+    navSettings: "Settings",
     navAppSettings: "Application Settings",
     navDataBackup: "Data Backup",
+    navGroupCv: "CV",
+    navGroupApp: "App",
+    settingsTitle: "Settings",
+    aiAssistantSettings: "AI Assistant",
+    aiAssistantEnabled: "Show AI Assistant",
+    aiAssistantEnabledHint: "When off, the AI Assistant sidebar item and toolbar button are hidden.",
+    aiAssistantDisabledToast: "AI Assistant is disabled in Settings. Enable it there to use it.",
     navPersonal: "Personal Information",
     navSummary: "Summary",
     navExperience: "Experience",
@@ -504,6 +528,13 @@ const translations = {
     resetConfirm: "All profiles will be deleted and only the example Full Stack Developer profile will remain. Are you sure?",
     resetSuccess: "Data reset; example profile loaded",
     resetError: "Reset failed",
+
+    unsavedTitle: "Unsaved changes",
+    unsavedMessage: "You have unsaved changes. Save them before leaving?",
+    unsavedSave: "Save",
+    unsavedDiscard: "Don't save",
+    unsavedCancel: "Cancel",
+    autoSaved: "Auto-saved",
 
     welcomeTitle: "Welcome to AI Resume Builder",
     welcomeTagline: "ATS-friendly CV, AI assistant, PDF export",

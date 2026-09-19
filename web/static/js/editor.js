@@ -34,20 +34,24 @@ const state = {
   currentId: null,
   previewTimer: null,
   envSettings: {},
-  activeSection: "profile-settings",
+  activeSection: "personal",
+  dirty: false,
+  saving: false,
+  autoSaveTimer: null,
+  unsavedResolver: null,
 };
 
+const AI_ASSISTANT_ENABLED_KEY = "aiAssistantEnabled";
+
 const SECTION_IDS = [
-  "profile-settings",
-  "app-settings",
   "personal",
+  "photo",
   "summary",
   "experience",
   "education",
   "projects",
   "skills",
-  "photo",
-  "data-backup",
+  "settings",
   "ai-assistant",
 ];
 
@@ -89,10 +93,46 @@ const els = {
   resetProfilesBtn: document.getElementById("resetProfilesBtn"),
   editorSidebar: document.querySelector(".editor-sidebar"),
   formSections: document.querySelectorAll(".form-section[data-section-id]"),
+  unsavedModal: document.getElementById("unsavedModal"),
+  unsavedSaveBtn: document.getElementById("unsavedSaveBtn"),
+  unsavedDiscardBtn: document.getElementById("unsavedDiscardBtn"),
+  unsavedCancelBtn: document.getElementById("unsavedCancelBtn"),
 };
+
+function isAiAssistantEnabled() {
+  const stored = localStorage.getItem(AI_ASSISTANT_ENABLED_KEY);
+  if (stored === null) return true;
+  return stored === "true";
+}
+
+function setAiAssistantEnabled(enabled) {
+  localStorage.setItem(AI_ASSISTANT_ENABLED_KEY, enabled ? "true" : "false");
+  applyAiAssistantVisibility();
+  if (!enabled && state.activeSection === "ai-assistant") {
+    showSection("settings");
+  }
+}
+
+function applyAiAssistantVisibility() {
+  const enabled = isAiAssistantEnabled();
+  document.querySelectorAll("[data-ai-nav]").forEach((el) => {
+    el.classList.toggle("hidden", !enabled);
+  });
+  const toggleBtn = document.getElementById("aiChatToggle");
+  if (toggleBtn) {
+    toggleBtn.classList.toggle("hidden", !enabled);
+  }
+  const checkbox = document.getElementById("aiAssistantEnabled");
+  if (checkbox) {
+    checkbox.checked = enabled;
+  }
+}
 
 function showSection(sectionId) {
   if (!SECTION_IDS.includes(sectionId)) return;
+  if (sectionId === "ai-assistant" && !isAiAssistantEnabled()) {
+    sectionId = "settings";
+  }
 
   state.activeSection = sectionId;
 
@@ -119,7 +159,18 @@ function initSectionNav() {
       showSection(item.dataset.section);
     });
   });
+  applyAiAssistantVisibility();
   showSection(state.activeSection);
+}
+
+function initAiAssistantSetting() {
+  const checkbox = document.getElementById("aiAssistantEnabled");
+  if (!checkbox) return;
+  checkbox.checked = isAiAssistantEnabled();
+  checkbox.addEventListener("change", () => {
+    setAiAssistantEnabled(checkbox.checked);
+  });
+  applyAiAssistantVisibility();
 }
 
 function emptyLocalizedContent() {
@@ -640,7 +691,7 @@ function reorderExperiences(fromIndex, toIndex) {
   const content = getActiveContent();
   if (reorderItem(content.experiences, fromIndex, toIndex)) {
     renderExperiences();
-    schedulePreview();
+    onEditorChange();
   }
 }
 
@@ -648,7 +699,7 @@ function reorderEducation(fromIndex, toIndex) {
   const content = getActiveContent();
   if (reorderItem(content.education, fromIndex, toIndex)) {
     renderEducation();
-    schedulePreview();
+    onEditorChange();
   }
 }
 
@@ -656,7 +707,7 @@ function reorderProjects(fromIndex, toIndex) {
   const content = getActiveContent();
   if (reorderItem(content.projects, fromIndex, toIndex)) {
     renderProjects();
-    schedulePreview();
+    onEditorChange();
   }
 }
 
@@ -664,7 +715,7 @@ function reorderSkillGroups(fromIndex, toIndex) {
   const content = getActiveContent();
   if (reorderItem(content.skillGroups, fromIndex, toIndex)) {
     renderSkillGroups();
-    schedulePreview();
+    onEditorChange();
   }
 }
 
@@ -807,7 +858,7 @@ function bindInput(labelText, value, onChange, options = {}) {
   input.value = value || "";
   input.addEventListener("input", (e) => {
     onChange(e.target.value);
-    schedulePreview();
+    onEditorChange();
   });
   label.appendChild(input);
   return label;
@@ -821,7 +872,7 @@ function renderExperiences() {
     const card = createCard(t("experienceN", { n: index + 1 }), () => {
       content.experiences.splice(index, 1);
       renderExperiences();
-      schedulePreview();
+      onEditorChange();
     }, (container) => {
       const fields = document.createElement("div");
       fields.className = "card-grid";
@@ -861,7 +912,7 @@ function renderEducation() {
     const card = createCard(t("educationN", { n: index + 1 }), () => {
       content.education.splice(index, 1);
       renderEducation();
-      schedulePreview();
+      onEditorChange();
     }, (container) => {
       const fields = document.createElement("div");
       fields.className = "card-grid";
@@ -896,7 +947,7 @@ function renderProjects() {
     const card = createCard(t("projectN", { n: index + 1 }), () => {
       content.projects.splice(index, 1);
       renderProjects();
-      schedulePreview();
+      onEditorChange();
     }, (container) => {
       const fields = document.createElement("div");
       fields.className = "card-grid";
@@ -929,7 +980,7 @@ function renderSkillGroups() {
     const card = createCard(t("skillGroupN", { n: index + 1 }), () => {
       content.skillGroups.splice(index, 1);
       renderSkillGroups();
-      schedulePreview();
+      onEditorChange();
     }, (container) => {
       const fields = document.createElement("div");
       fields.className = "card-grid";
@@ -1006,6 +1057,7 @@ function switchEditingLanguage(nextLang) {
     els.cvLanguage.value = normalizedNext;
   }
   renderForm();
+  markDirty();
   schedulePreview();
 }
 
@@ -1022,6 +1074,112 @@ async function updatePreview() {
 function schedulePreview() {
   clearTimeout(state.previewTimer);
   state.previewTimer = setTimeout(updatePreview, 300);
+}
+
+function markDirty() {
+  if (!state.currentId) return;
+  state.dirty = true;
+  updateSaveButtonHint();
+}
+
+function markClean() {
+  state.dirty = false;
+  updateSaveButtonHint();
+}
+
+function isDirty() {
+  return Boolean(state.dirty && state.currentId);
+}
+
+function updateSaveButtonHint() {
+  if (!els.saveBtn) return;
+  if (state.dirty) {
+    els.saveBtn.classList.add("is-dirty");
+    els.saveBtn.title = t("unsavedTitle");
+  } else {
+    els.saveBtn.classList.remove("is-dirty");
+    els.saveBtn.title = t("save");
+  }
+}
+
+function onEditorChange() {
+  markDirty();
+  schedulePreview();
+}
+
+function hideUnsavedModal() {
+  if (!els.unsavedModal) return;
+  els.unsavedModal.classList.add("hidden");
+  els.unsavedModal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("confirm-modal-open");
+}
+
+function showUnsavedModal() {
+  return new Promise((resolve) => {
+    if (!els.unsavedModal) {
+      resolve("cancel");
+      return;
+    }
+    state.unsavedResolver = resolve;
+    els.unsavedModal.classList.remove("hidden");
+    els.unsavedModal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("confirm-modal-open");
+    els.unsavedSaveBtn?.focus();
+  });
+}
+
+function resolveUnsavedModal(action) {
+  hideUnsavedModal();
+  const resolve = state.unsavedResolver;
+  state.unsavedResolver = null;
+  if (resolve) resolve(action);
+}
+
+async function confirmUnsavedChanges() {
+  if (!isDirty()) return "discard";
+  return showUnsavedModal();
+}
+
+async function guardUnsavedThen(actionFn) {
+  const decision = await confirmUnsavedChanges();
+  if (decision === "cancel") return false;
+  if (decision === "save") {
+    const ok = await saveProfile({ silent: false });
+    if (!ok) return false;
+  } else {
+    markClean();
+  }
+  await actionFn();
+  return true;
+}
+
+function initUnsavedModal() {
+  els.unsavedSaveBtn?.addEventListener("click", () => resolveUnsavedModal("save"));
+  els.unsavedDiscardBtn?.addEventListener("click", () => resolveUnsavedModal("discard"));
+  els.unsavedModal?.querySelectorAll("[data-unsaved-cancel]").forEach((el) => {
+    el.addEventListener("click", () => resolveUnsavedModal("cancel"));
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (!els.unsavedModal || els.unsavedModal.classList.contains("hidden")) return;
+    e.preventDefault();
+    resolveUnsavedModal("cancel");
+  });
+
+  window.addEventListener("beforeunload", (e) => {
+    if (!isDirty()) return;
+    e.preventDefault();
+    e.returnValue = "";
+  });
+}
+
+function startAutoSave() {
+  if (state.autoSaveTimer) clearInterval(state.autoSaveTimer);
+  state.autoSaveTimer = setInterval(() => {
+    if (!isDirty() || state.saving || !state.currentId) return;
+    saveProfile({ silent: true, auto: true });
+  }, 60_000);
 }
 
 async function loadProfiles(selectId) {
@@ -1041,54 +1199,72 @@ async function loadProfiles(selectId) {
   normalizeProfile(state.profile);
 
   renderForm();
+  markClean();
   await updatePreview();
 }
 
-async function saveProfile() {
+async function saveProfile(options = {}) {
+  if (!state.currentId || state.saving) return false;
   const profile = collectProfileFromForm();
+  state.saving = true;
   try {
     const saved = await API.updateProfile(state.currentId, profile);
     state.profile = saved;
-    showToast(t("profileSaved"));
+    markClean();
+    if (options.auto) {
+      showToast(t("autoSaved"));
+    } else if (!options.silent) {
+      showToast(t("profileSaved"));
+    }
     const profiles = await API.listProfiles();
     renderProfileSelect(profiles);
     els.profileSelect.value = String(state.currentId);
+    return true;
   } catch (error) {
     showToast(error.message);
+    return false;
+  } finally {
+    state.saving = false;
   }
 }
 
 async function createNewProfile() {
-  const profile = emptyProfile();
-  profile.name = `CV ${new Date().toLocaleDateString("tr-TR")}`;
-  const created = await API.createProfile(profile);
-  state.currentId = created.id;
-  state.profile = created;
-  const profiles = await API.listProfiles();
-  renderProfileSelect(profiles);
-  els.profileSelect.value = String(created.id);
-  renderForm();
-  await updatePreview();
-  showToast(t("newProfileCreated"));
+  await guardUnsavedThen(async () => {
+    const profile = emptyProfile();
+    profile.name = `CV ${new Date().toLocaleDateString("tr-TR")}`;
+    const created = await API.createProfile(profile);
+    state.currentId = created.id;
+    state.profile = created;
+    const profiles = await API.listProfiles();
+    renderProfileSelect(profiles);
+    els.profileSelect.value = String(created.id);
+    renderForm();
+    markClean();
+    await updatePreview();
+    showToast(t("newProfileCreated"));
+  });
 }
 
 async function duplicateCurrentProfile() {
   if (!state.currentId) return;
 
-  try {
-    const duplicated = await API.duplicateProfile(state.currentId);
-    state.currentId = duplicated.id;
-    state.profile = duplicated;
-    normalizeProfile(state.profile);
-    const profiles = await API.listProfiles();
-    renderProfileSelect(profiles);
-    els.profileSelect.value = String(duplicated.id);
-    renderForm();
-    await updatePreview();
-    showToast(t("profileDuplicated"));
-  } catch (error) {
-    showToast(error.message);
-  }
+  await guardUnsavedThen(async () => {
+    try {
+      const duplicated = await API.duplicateProfile(state.currentId);
+      state.currentId = duplicated.id;
+      state.profile = duplicated;
+      normalizeProfile(state.profile);
+      const profiles = await API.listProfiles();
+      renderProfileSelect(profiles);
+      els.profileSelect.value = String(duplicated.id);
+      renderForm();
+      markClean();
+      await updatePreview();
+      showToast(t("profileDuplicated"));
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
 }
 
 async function deleteCurrentProfile() {
@@ -1098,6 +1274,7 @@ async function deleteCurrentProfile() {
   try {
     await API.deleteProfile(state.currentId);
     state.currentId = null;
+    markClean();
     await loadProfiles();
     showToast(t("profileDeleted"));
   } catch (error) {
@@ -1126,8 +1303,10 @@ async function translateProfile() {
   const defaultLabel = t("translateToLang", { lang: targetName });
 
   const provider = getTranslateProvider();
-  showSection("ai-assistant");
-  window.AIChat?.startTranslateProgress?.();
+  if (isAiAssistantEnabled()) {
+    showSection("ai-assistant");
+    window.AIChat?.startTranslateProgress?.();
+  }
 
   try {
     if (btn) {
@@ -1155,6 +1334,7 @@ async function translateProfile() {
       state.profile = translated;
       normalizeProfile(state.profile);
       renderForm();
+      markClean();
       await updatePreview();
       if (targetLang === "en") {
         showToast(t("cvTranslatedEn"));
@@ -1182,6 +1362,10 @@ async function downloadPDF() {
   try {
     els.pdfBtn.disabled = true;
     els.pdfBtn.textContent = t("pdfPreparing");
+    // Persist latest edits before export so PDF matches what you see.
+    if (state.currentId && isDirty()) {
+      await saveProfile({ silent: true });
+    }
     await API.downloadPDF(profile);
     showToast(t("pdfDownloaded"));
   } catch (error) {
@@ -1215,46 +1399,50 @@ async function exportAllProfilesBackup() {
 }
 
 async function resetAllProfiles() {
-  if (!window.confirm(t("resetConfirm"))) {
-    return;
-  }
+  await guardUnsavedThen(async () => {
+    if (!window.confirm(t("resetConfirm"))) {
+      return;
+    }
 
-  try {
-    const result = await API.resetAllProfiles();
-    const selectId = result?.profile?.id;
-    await loadProfiles(selectId);
-    showToast(t("resetSuccess"));
-  } catch (error) {
-    showToast(t("resetError") + (error.message ? `: ${error.message}` : ""));
-  }
+    try {
+      const result = await API.resetAllProfiles();
+      const selectId = result?.profile?.id;
+      await loadProfiles(selectId);
+      showToast(t("resetSuccess"));
+    } catch (error) {
+      showToast(t("resetError") + (error.message ? `: ${error.message}` : ""));
+    }
+  });
 }
 
 async function handleImportBackup(file) {
   if (!file) return;
 
-  const merge = window.confirm(t("importMergeConfirm"));
-  let mode = "merge";
-  if (!merge) {
-    if (!window.confirm(t("importReplaceConfirm"))) {
-      return;
+  await guardUnsavedThen(async () => {
+    const merge = window.confirm(t("importMergeConfirm"));
+    let mode = "merge";
+    if (!merge) {
+      if (!window.confirm(t("importReplaceConfirm"))) {
+        return;
+      }
+      mode = "replace";
     }
-    mode = "replace";
-  }
 
-  try {
-    const result = await API.importProfiles(file, mode);
-    const imported = Array.isArray(result?.profiles) ? result.profiles : [];
-    const selectId = imported[0]?.id;
-    await loadProfiles(selectId);
-    const count = result?.count ?? imported.length;
-    showToast(t("importSuccess", { count }));
-  } catch (error) {
-    showToast(t("importError", { error: error.message || t("unknownError") }));
-  } finally {
-    if (els.importProfileInput) {
-      els.importProfileInput.value = "";
+    try {
+      const result = await API.importProfiles(file, mode);
+      const imported = Array.isArray(result?.profiles) ? result.profiles : [];
+      const selectId = imported[0]?.id;
+      await loadProfiles(selectId);
+      const count = result?.count ?? imported.length;
+      showToast(t("importSuccess", { count }));
+    } catch (error) {
+      showToast(t("importError", { error: error.message || t("unknownError") }));
+    } finally {
+      if (els.importProfileInput) {
+        els.importProfileInput.value = "";
+      }
     }
-  }
+  });
 }
 
 async function handlePhotoUpload(file) {
@@ -1263,6 +1451,7 @@ async function handlePhotoUpload(file) {
     const updated = await API.uploadPhoto(state.currentId, file);
     state.profile = updated;
     renderPhoto();
+    markClean();
     schedulePreview();
     showToast(t("photoUploaded"));
   } catch (error) {
@@ -1272,10 +1461,28 @@ async function handlePhotoUpload(file) {
 
 function initEventListeners() {
   els.profileSelect.addEventListener("change", async () => {
-    state.currentId = Number(els.profileSelect.value);
+    const nextId = Number(els.profileSelect.value);
+    const previousId = state.currentId;
+    if (previousId && nextId === previousId) return;
+
+    if (isDirty()) {
+      els.profileSelect.value = String(previousId);
+      const decision = await confirmUnsavedChanges();
+      if (decision === "cancel") return;
+      if (decision === "save") {
+        const ok = await saveProfile({ silent: false });
+        if (!ok) return;
+      } else {
+        markClean();
+      }
+      els.profileSelect.value = String(nextId);
+    }
+
+    state.currentId = nextId;
     state.profile = await API.getProfile(state.currentId);
     normalizeProfile(state.profile);
     renderForm();
+    markClean();
     await updatePreview();
   });
 
@@ -1311,7 +1518,7 @@ function initEventListeners() {
   els.newProfileBtn.addEventListener("click", createNewProfile);
   els.duplicateProfileBtn.addEventListener("click", duplicateCurrentProfile);
   els.deleteProfileBtn.addEventListener("click", deleteCurrentProfile);
-  els.saveBtn.addEventListener("click", saveProfile);
+  els.saveBtn.addEventListener("click", () => saveProfile());
   els.pdfBtn.addEventListener("click", downloadPDF);
   els.exportProfileBtn?.addEventListener("click", exportCurrentProfileBackup);
   els.exportAllBtn?.addEventListener("click", exportAllProfilesBackup);
@@ -1323,12 +1530,12 @@ function initEventListeners() {
   });
   els.resetProfilesBtn?.addEventListener("click", resetAllProfiles);
 
-  els.profileName.addEventListener("input", schedulePreview);
+  els.profileName.addEventListener("input", onEditorChange);
   document.querySelectorAll("[data-field]").forEach((input) => {
-    input.addEventListener("input", schedulePreview);
+    input.addEventListener("input", onEditorChange);
   });
   document.querySelectorAll("[data-localized]").forEach((input) => {
-    input.addEventListener("input", schedulePreview);
+    input.addEventListener("input", onEditorChange);
   });
 
   document.querySelectorAll("[data-add]").forEach((button) => {
@@ -1363,7 +1570,7 @@ function initEventListeners() {
         content.skillGroups.push({ category: "", skills: [] });
         renderSkillGroups();
       }
-      schedulePreview();
+      onEditorChange();
     });
   });
 
@@ -1379,13 +1586,13 @@ function initEventListeners() {
     input.addEventListener("input", () => {
       syncPhotoSettingLabels();
       applyPhotoPreviewStyles();
-      schedulePreview();
+      onEditorChange();
     });
   });
 
   els.photoBorderColor.addEventListener("input", () => {
     applyPhotoPreviewStyles();
-    schedulePreview();
+    onEditorChange();
   });
 
   els.removePhotoBtn.addEventListener("click", async () => {
@@ -1395,10 +1602,14 @@ function initEventListeners() {
     if (state.currentId) {
       try {
         await API.updateProfile(state.currentId, collectProfileFromForm());
+        markClean();
         showToast(t("photoRemoved"));
       } catch (error) {
+        markDirty();
         showToast(error.message);
       }
+    } else {
+      markDirty();
     }
   });
 }
@@ -1411,6 +1622,7 @@ async function onProfileUpdated(profile) {
   renderProfileSelect(profiles);
   els.profileSelect.value = String(profile.id);
   renderForm();
+  markClean();
   await updatePreview();
 }
 
@@ -1439,6 +1651,7 @@ async function onAIChatResult(response) {
   renderProfileSelect(profiles);
   els.profileSelect.value = String(profile.id);
   renderForm();
+  markClean();
   await updatePreview();
 
   const createAction = (response.actions || []).find(
@@ -1463,6 +1676,7 @@ window.CVEditor = {
   getProfile: () => state.profile,
   getOpenAIApiKey,
   isOpenAIConfigured,
+  isAiAssistantEnabled,
   showToast,
   onProfileUpdated,
   onAIChatResult,
@@ -1489,7 +1703,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   initTheme();
   loadApiKeysFromStorage();
   initSectionNav();
+  initAiAssistantSetting();
+  initUnsavedModal();
   initEventListeners();
+  startAutoSave();
   try {
     await loadEnvSettings();
     await loadProfiles();

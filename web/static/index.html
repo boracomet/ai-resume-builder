@@ -99,61 +99,27 @@
     <div class="workspace">
       <aside class="editor-panel">
         <nav class="editor-sidebar" data-i18n-aria-label="formSections" aria-label="Form bölümleri">
-          <button type="button" class="editor-nav-item is-active" data-section="profile-settings" data-i18n="navProfile">Profil</button>
-          <button type="button" class="editor-nav-item" data-section="app-settings" data-i18n="navAppSettings">Uygulama Ayarları</button>
-          <button type="button" class="editor-nav-item" data-section="personal" data-i18n="navPersonal">Kişisel Bilgiler</button>
+          <div class="editor-nav-group" aria-hidden="true">
+            <span class="editor-nav-group__label" data-i18n="navGroupCv">CV</span>
+          </div>
+          <button type="button" class="editor-nav-item is-active" data-section="personal" data-i18n="navPersonal">Kişisel Bilgiler</button>
+          <button type="button" class="editor-nav-item" data-section="photo" data-i18n="navPhoto">Profil Fotoğrafı</button>
           <button type="button" class="editor-nav-item" data-section="summary" data-i18n="navSummary">Özet</button>
           <button type="button" class="editor-nav-item" data-section="experience" data-i18n="navExperience">Deneyim</button>
           <button type="button" class="editor-nav-item" data-section="education" data-i18n="navEducation">Eğitim</button>
           <button type="button" class="editor-nav-item" data-section="projects" data-i18n="navProjects">Projeler</button>
           <button type="button" class="editor-nav-item" data-section="skills" data-i18n="navSkills">Beceriler</button>
-          <button type="button" class="editor-nav-item" data-section="photo" data-i18n="navPhoto">Profil Fotoğrafı</button>
-          <button type="button" class="editor-nav-item" data-section="data-backup" data-i18n="navDataBackup">Veri Yedekleme</button>
-          <button type="button" class="editor-nav-item" data-section="ai-assistant" data-i18n="navAI">AI Asistan</button>
+
+          <div class="editor-nav-group">
+            <span class="editor-nav-group__label" data-i18n="navGroupApp">Uygulama</span>
+          </div>
+          <button type="button" class="editor-nav-item" data-section="settings" data-i18n="navSettings">Ayarlar</button>
+          <button type="button" class="editor-nav-item" data-section="ai-assistant" data-ai-nav data-i18n="navAI">AI Asistan</button>
         </nav>
 
         <div class="editor-content">
           <form id="cvForm" class="cv-form">
-          <section class="form-section is-active" data-section-id="profile-settings">
-            <h2 data-i18n="profileSettings">Profil</h2>
-            <div class="form-field">
-              <label for="profileName" data-i18n="profileName">Profil Adı</label>
-              <input type="text" id="profileName" name="profileName" data-i18n-placeholder="profileNamePlaceholder" placeholder="Örn: İş Başvurusu">
-            </div>
-            <p class="form-hint" data-i18n="profileSettingsHint">Seçili CV profilinin adını düzenleyin.</p>
-          </section>
-
-          <section class="form-section" data-section-id="app-settings">
-            <h2 data-i18n="appSettings">Uygulama Ayarları</h2>
-            <div class="form-field">
-              <label for="appLanguage" data-i18n="appLanguage">Uygulama Dili</label>
-              <select id="appLanguage">
-                <option value="tr" data-i18n="langTurkish">Türkçe</option>
-                <option value="en" data-i18n="langEnglish">English</option>
-              </select>
-            </div>
-            <p class="form-hint" data-i18n="appLanguageHint">Editör arayüzünün dilini seçin. CV içeriği dili ayrıca yönetilir.</p>
-            <div class="form-field">
-              <label data-i18n="targetTranslateLang">Hedef Çeviri Dili</label>
-              <div id="targetTranslateLangChips" class="lang-chip-list" aria-live="polite"></div>
-              <div class="lang-add-row">
-                <input
-                  type="text"
-                  id="targetTranslateLangSearch"
-                  list="targetTranslateLangList"
-                  autocomplete="off"
-                  data-i18n-placeholder="searchLanguages"
-                  placeholder="Dil ara veya seç..."
-                >
-                <datalist id="targetTranslateLangList"></datalist>
-                <button type="button" id="targetTranslateLangAdd" class="btn btn-outline btn-sm" data-i18n="addLanguage">Ekle</button>
-              </div>
-            </div>
-            <p class="form-hint" data-i18n="targetTranslateLangHint">Araç çubuğundaki çeviri butonunun hangi dile çevireceğini belirler.</p>
-            <p class="form-hint" data-i18n="generalSettingsHint">Düzenleme dili üst araç çubuğundan yönetilir.</p>
-          </section>
-
-          <section class="form-section" data-section-id="personal">
+          <section class="form-section is-active" data-section-id="personal">
             <h2 data-i18n="personalInfo">Kişisel Bilgiler</h2>
             <div class="form-grid">
               <label><span data-i18n="fullName">Ad Soyad</span><input type="text" data-field="personal.name"></label>
@@ -166,6 +132,37 @@
               <label><span data-i18n="location">Konum</span><input type="text" data-field="personal.location"></label>
               <label><span data-i18n="birthDate">Doğum Tarihi</span><input type="text" data-field="personal.birthDate"></label>
               <label><span data-i18n="languages">Diller</span><input type="text" data-localized="personalLanguages"></label>
+            </div>
+          </section>
+
+          <section class="form-section" data-section-id="photo">
+            <h2 data-i18n="profilePhoto">Profil Fotoğrafı</h2>
+            <div class="photo-upload">
+              <input type="file" id="photoInput" accept="image/*">
+              <div id="photoPreview" class="photo-preview hidden">
+                <img id="photoPreviewImg" class="photo-thumb-preview" data-i18n-alt="photoPreviewAlt" alt="Profil fotoğrafı önizleme">
+                <button type="button" id="removePhotoBtn" class="btn btn-secondary btn-sm" data-i18n="remove">Kaldır</button>
+              </div>
+            </div>
+            <div class="photo-settings">
+              <label class="photo-setting">
+                <span data-i18n="size">Boyut</span>
+                <div class="photo-setting-control">
+                  <input type="range" id="photoSize" data-field="photoSize" min="60" max="150" step="1" value="96">
+                  <output id="photoSizeValue" for="photoSize">96 px</output>
+                </div>
+              </label>
+              <label class="photo-setting">
+                <span data-i18n="borderWidth">Çerçeve kalınlığı</span>
+                <div class="photo-setting-control">
+                  <input type="range" id="photoBorderWidth" data-field="photoBorderWidth" min="0" max="10" step="1" value="2">
+                  <output id="photoBorderWidthValue" for="photoBorderWidth">2 px</output>
+                </div>
+              </label>
+              <label class="photo-setting photo-setting-color">
+                <span data-i18n="borderColor">Çerçeve rengi</span>
+                <input type="color" id="photoBorderColor" data-field="photoBorderColor" value="#2563eb">
+              </label>
             </div>
           </section>
 
@@ -206,47 +203,69 @@
             <div id="skillGroupsList" class="dynamic-list"></div>
           </section>
 
-          <section class="form-section" data-section-id="photo">
-            <h2 data-i18n="profilePhoto">Profil Fotoğrafı</h2>
-            <div class="photo-upload">
-              <input type="file" id="photoInput" accept="image/*">
-              <div id="photoPreview" class="photo-preview hidden">
-                <img id="photoPreviewImg" class="photo-thumb-preview" data-i18n-alt="photoPreviewAlt" alt="Profil fotoğrafı önizleme">
-                <button type="button" id="removePhotoBtn" class="btn btn-secondary btn-sm" data-i18n="remove">Kaldır</button>
-              </div>
-            </div>
-            <div class="photo-settings">
-              <label class="photo-setting">
-                <span data-i18n="size">Boyut</span>
-                <div class="photo-setting-control">
-                  <input type="range" id="photoSize" data-field="photoSize" min="60" max="150" step="1" value="96">
-                  <output id="photoSizeValue" for="photoSize">96 px</output>
-                </div>
-              </label>
-              <label class="photo-setting">
-                <span data-i18n="borderWidth">Çerçeve kalınlığı</span>
-                <div class="photo-setting-control">
-                  <input type="range" id="photoBorderWidth" data-field="photoBorderWidth" min="0" max="10" step="1" value="2">
-                  <output id="photoBorderWidthValue" for="photoBorderWidth">2 px</output>
-                </div>
-              </label>
-              <label class="photo-setting photo-setting-color">
-                <span data-i18n="borderColor">Çerçeve rengi</span>
-                <input type="color" id="photoBorderColor" data-field="photoBorderColor" value="#2563eb">
-              </label>
-            </div>
-          </section>
+          <section class="form-section" data-section-id="settings">
+            <h2 data-i18n="settingsTitle">Ayarlar</h2>
 
-          <section class="form-section" data-section-id="data-backup">
-            <h2 data-i18n="backupSection">Veri Yedekleme</h2>
-            <p class="form-hint" data-i18n="backupHint">Profillerinizi JSON olarak dışa aktarın veya yedekten geri yükleyin.</p>
-            <div class="backup-actions">
-              <button type="button" id="exportProfileBtn" class="btn btn-outline btn-sm" data-i18n="exportProfile">JSON Dışa Aktar</button>
-              <button type="button" id="exportAllBtn" class="btn btn-outline btn-sm" data-i18n="exportAll">Tümünü Yedekle</button>
-              <label class="btn btn-outline btn-sm backup-import-label">
-                <span data-i18n="importProfile">JSON İçe Aktar</span>
-                <input type="file" id="importProfileInput" accept=".json,application/json" hidden>
+            <div class="form-subsection">
+              <h3 data-i18n="profileSettings">Profil</h3>
+              <div class="form-field">
+                <label for="profileName" data-i18n="profileName">Profil Adı</label>
+                <input type="text" id="profileName" name="profileName" data-i18n-placeholder="profileNamePlaceholder" placeholder="Örn: İş Başvurusu">
+              </div>
+              <p class="form-hint" data-i18n="profileSettingsHint">Seçili CV profilinin adını düzenleyin.</p>
+            </div>
+
+            <div class="form-subsection">
+              <h3 data-i18n="appSettings">Uygulama</h3>
+              <div class="form-field">
+                <label for="appLanguage" data-i18n="appLanguage">Uygulama Dili</label>
+                <select id="appLanguage">
+                  <option value="tr" data-i18n="langTurkish">Türkçe</option>
+                  <option value="en" data-i18n="langEnglish">English</option>
+                </select>
+              </div>
+              <p class="form-hint" data-i18n="appLanguageHint">Editör arayüzünün dilini seçin. CV içeriği dili ayrıca yönetilir.</p>
+              <div class="form-field">
+                <label data-i18n="targetTranslateLang">Hedef Çeviri Dili</label>
+                <div id="targetTranslateLangChips" class="lang-chip-list" aria-live="polite"></div>
+                <div class="lang-add-row">
+                  <input
+                    type="text"
+                    id="targetTranslateLangSearch"
+                    list="targetTranslateLangList"
+                    autocomplete="off"
+                    data-i18n-placeholder="searchLanguages"
+                    placeholder="Dil ara veya seç..."
+                  >
+                  <datalist id="targetTranslateLangList"></datalist>
+                  <button type="button" id="targetTranslateLangAdd" class="btn btn-outline btn-sm" data-i18n="addLanguage">Ekle</button>
+                </div>
+              </div>
+              <p class="form-hint" data-i18n="targetTranslateLangHint">Araç çubuğundaki çeviri butonunun hangi dile çevireceğini belirler.</p>
+              <p class="form-hint" data-i18n="generalSettingsHint">Düzenleme dili üst araç çubuğundan yönetilir.</p>
+            </div>
+
+            <div class="form-subsection">
+              <h3 data-i18n="aiAssistantSettings">AI Asistan</h3>
+              <label class="settings-toggle">
+                <input type="checkbox" id="aiAssistantEnabled" checked>
+                <span data-i18n="aiAssistantEnabled">AI Asistanı göster</span>
               </label>
+              <p class="form-hint" data-i18n="aiAssistantEnabledHint">Kapatıldığında sol menüdeki AI Asistan sekmesi ve üstteki AI butonu gizlenir.</p>
+              <button type="button" id="apiSetupOpenBtn" class="btn btn-outline btn-sm" data-i18n="apiSetup">API Kurulum</button>
+            </div>
+
+            <div class="form-subsection">
+              <h3 data-i18n="backupSection">Veri Yedekleme</h3>
+              <p class="form-hint" data-i18n="backupHint">Profillerinizi JSON olarak dışa aktarın veya yedekten geri yükleyin.</p>
+              <div class="backup-actions">
+                <button type="button" id="exportProfileBtn" class="btn btn-outline btn-sm" data-i18n="exportProfile">JSON Dışa Aktar</button>
+                <button type="button" id="exportAllBtn" class="btn btn-outline btn-sm" data-i18n="exportAll">Tümünü Yedekle</button>
+                <label class="btn btn-outline btn-sm backup-import-label">
+                  <span data-i18n="importProfile">JSON İçe Aktar</span>
+                  <input type="file" id="importProfileInput" accept=".json,application/json" hidden>
+                </label>
+              </div>
             </div>
 
             <div class="form-subsection reset-section">
@@ -260,7 +279,7 @@
             <h2 class="ai-section-heading" data-i18n="navAI">AI Asistan</h2>
 
             <div class="ai-chat-toolbar" data-i18n-aria-label="aiToolbar" aria-label="AI araç çubuğu">
-              <button type="button" id="apiSetupOpenBtn" class="btn btn-outline btn-sm" data-i18n="apiSetup">API Kurulum</button>
+              <button type="button" id="apiSetupOpenBtnChat" class="btn btn-outline btn-sm" data-i18n="apiSetup">API Kurulum</button>
               <div id="aiSessionCost" class="ai-session-cost ai-session-cost--compact" aria-live="polite">
                 <span class="ai-session-cost-label" data-i18n="sessionCost">Oturum Maliyeti:</span>
                 <span id="aiSessionCostValue" class="ai-session-cost-value">$0.000000</span>
@@ -337,12 +356,29 @@
     </div>
   </div>
 
+  <div id="unsavedModal" class="confirm-modal hidden" aria-hidden="true" role="dialog" aria-labelledby="unsavedModalTitle">
+    <div class="confirm-modal__backdrop" data-unsaved-cancel></div>
+    <div class="confirm-modal__dialog">
+      <div class="confirm-modal__header">
+        <h2 id="unsavedModalTitle" class="confirm-modal__title" data-i18n="unsavedTitle">Kaydedilmemiş değişiklikler</h2>
+      </div>
+      <div class="confirm-modal__body">
+        <p data-i18n="unsavedMessage">Kaydedilmemiş değişiklikleriniz var. Çıkmadan önce kaydetmek ister misiniz?</p>
+      </div>
+      <div class="confirm-modal__footer">
+        <button type="button" id="unsavedCancelBtn" class="btn btn-secondary" data-unsaved-cancel data-i18n="unsavedCancel">İptal</button>
+        <button type="button" id="unsavedDiscardBtn" class="btn btn-secondary" data-i18n="unsavedDiscard">Kaydetme</button>
+        <button type="button" id="unsavedSaveBtn" class="btn btn-primary" data-i18n="unsavedSave">Kaydet</button>
+      </div>
+    </div>
+  </div>
+
   <div id="apiSetupModal" class="api-setup-modal hidden" aria-hidden="true" role="dialog" aria-labelledby="apiSetupModalTitle">
     <div class="api-setup-modal__backdrop" data-api-setup-close></div>
     <div class="api-setup-modal__dialog">
       <div class="api-setup-modal__header">
         <h2 id="apiSetupModalTitle" class="api-setup-modal__title" data-i18n="apiSetup">API Kurulum</h2>
-        <button type="button" id="apiSetupModalClose" class="btn btn-icon-only api-setup-modal__close" data-i18n-aria-label="close" aria-label="Kapat">
+        <button type="button" id="apiSetupModalClose" class="btn btn-icon-only api-setup-modal__close" data-api-setup-close data-i18n-aria-label="close" aria-label="Kapat">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <line x1="18" y1="6" x2="6" y2="18"/>
             <line x1="6" y1="6" x2="18" y2="18"/>
