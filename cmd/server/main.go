@@ -36,7 +36,7 @@ func main() {
 	}
 
 	cvHandler := handlers.NewCVHandler(repo)
-	previewHandler := handlers.NewPreviewHandler()
+	previewHandler := handlers.NewPreviewHandler(repo)
 	pdfHandler := handlers.NewPDFHandler()
 	translateHandler := handlers.NewTranslateHandler(repo)
 	aiHandler := handlers.NewAIHandler(repo)

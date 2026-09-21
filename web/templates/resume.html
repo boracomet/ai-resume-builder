@@ -101,7 +101,9 @@
         {{ if .Highlights }}
         <ul class="cv-list">
           {{ range .Highlights }}
+          {{ if . }}
           <li>{{ . }}</li>
+          {{ end }}
           {{ end }}
         </ul>
         {{ end }}

@@ -236,7 +236,7 @@ func copyLocalizedContent(dst, src models.LocalizedContent, opts models.ProfileC
 		dst.PersonalLanguages = src.PersonalLanguages
 	}
 	if shouldCopy("experience") || shouldCopy("experiences") {
-		dst.Experiences = append([]models.Experience(nil), src.Experiences...)
+		dst.Experiences = cloneExperiences(src.Experiences)
 	}
 	if shouldCopy("education") {
 		dst.Education = append([]models.Education(nil), src.Education...)
@@ -245,9 +245,33 @@ func copyLocalizedContent(dst, src models.LocalizedContent, opts models.ProfileC
 		dst.Projects = append([]models.Project(nil), src.Projects...)
 	}
 	if shouldCopy("skills") || shouldCopy("skillGroups") {
-		dst.SkillGroups = append([]models.SkillGroup(nil), src.SkillGroups...)
+		dst.SkillGroups = cloneSkillGroups(src.SkillGroups)
 	}
 	return dst
+}
+
+func cloneExperiences(src []models.Experience) []models.Experience {
+	if src == nil {
+		return nil
+	}
+	cloned := make([]models.Experience, len(src))
+	for i, exp := range src {
+		cloned[i] = exp
+		cloned[i].Highlights = append([]string(nil), exp.Highlights...)
+	}
+	return cloned
+}
+
+func cloneSkillGroups(src []models.SkillGroup) []models.SkillGroup {
+	if src == nil {
+		return nil
+	}
+	cloned := make([]models.SkillGroup, len(src))
+	for i, group := range src {
+		cloned[i] = group
+		cloned[i].Skills = append([]string(nil), group.Skills...)
+	}
+	return cloned
 }
 
 func duplicateProfileName(name string) string {

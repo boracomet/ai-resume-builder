@@ -97,12 +97,7 @@ func translateContentWith(content *models.LocalizedContent, source, target strin
 		apply = append(apply, setter)
 	}
 
-	result := models.LocalizedContent{
-		Experiences: append([]models.Experience(nil), content.Experiences...),
-		Education:   append([]models.Education(nil), content.Education...),
-		Projects:    append([]models.Project(nil), content.Projects...),
-		SkillGroups: append([]models.SkillGroup(nil), content.SkillGroups...),
-	}
+	result := cloneLocalizedContent(content)
 
 	add(content.Summary, func(v string) { result.Summary = v })
 	add(content.PersonalTitle, func(v string) { result.PersonalTitle = v })
@@ -118,8 +113,8 @@ func translateContentWith(content *models.LocalizedContent, source, target strin
 		add(exp.Location, func(v string) { exp.Location = v })
 		add(exp.Description, func(v string) { exp.Description = v })
 		for j := range exp.Highlights {
-			highlight := &exp.Highlights[j]
-			add(*highlight, func(v string) { *highlight = v })
+			j := j
+			add(exp.Highlights[j], func(v string) { exp.Highlights[j] = v })
 		}
 	}
 
@@ -182,4 +177,31 @@ func translateEducationScalar(value, target string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func cloneLocalizedContent(content *models.LocalizedContent) models.LocalizedContent {
+	if content == nil {
+		return models.EmptyLocalizedContent()
+	}
+
+	cloned := models.LocalizedContent{
+		Summary:           content.Summary,
+		PersonalTitle:     content.PersonalTitle,
+		PersonalLanguages: content.PersonalLanguages,
+		Experiences:       make([]models.Experience, len(content.Experiences)),
+		Education:         append([]models.Education(nil), content.Education...),
+		Projects:          append([]models.Project(nil), content.Projects...),
+		SkillGroups:       make([]models.SkillGroup, len(content.SkillGroups)),
+	}
+
+	for i, exp := range content.Experiences {
+		cloned.Experiences[i] = exp
+		cloned.Experiences[i].Highlights = append([]string(nil), exp.Highlights...)
+	}
+	for i, group := range content.SkillGroups {
+		cloned.SkillGroups[i] = group
+		cloned.SkillGroups[i].Skills = append([]string(nil), group.Skills...)
+	}
+
+	return cloned
 }

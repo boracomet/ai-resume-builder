@@ -33,6 +33,9 @@ const state = {
   profile: emptyProfile(),
   currentId: null,
   previewTimer: null,
+  previewSeq: 0,
+  previewAbort: null,
+  photoPreviewDirty: false,
   envSettings: {},
   activeSection: "personal",
   dirty: false,
@@ -42,6 +45,7 @@ const state = {
 };
 
 const AI_ASSISTANT_ENABLED_KEY = "aiAssistantEnabled";
+const ACTIVE_SECTION_KEY = "activeEditorSection";
 
 const SECTION_IDS = [
   "personal",
@@ -135,6 +139,9 @@ function showSection(sectionId) {
   }
 
   state.activeSection = sectionId;
+  try {
+    localStorage.setItem(ACTIVE_SECTION_KEY, sectionId);
+  } catch (_) {}
 
   els.formSections.forEach((section) => {
     section.classList.toggle("is-active", section.dataset.sectionId === sectionId);
@@ -153,6 +160,19 @@ function showSection(sectionId) {
   }
 }
 
+function getSavedSection() {
+  try {
+    const saved = localStorage.getItem(ACTIVE_SECTION_KEY);
+    if (saved && SECTION_IDS.includes(saved)) {
+      if (saved === "ai-assistant" && !isAiAssistantEnabled()) {
+        return "settings";
+      }
+      return saved;
+    }
+  } catch (_) {}
+  return "personal";
+}
+
 function initSectionNav() {
   els.editorSidebar?.querySelectorAll(".editor-nav-item").forEach((item) => {
     item.addEventListener("click", () => {
@@ -160,7 +180,7 @@ function initSectionNav() {
     });
   });
   applyAiAssistantVisibility();
-  showSection(state.activeSection);
+  showSection(getSavedSection());
 }
 
 function initAiAssistantSetting() {
@@ -885,7 +905,8 @@ function renderExperiences() {
         bindInput(t("location"), exp.location, (v) => (exp.location = v)),
         bindInput(t("companyDescription"), exp.description, (v) => (exp.description = v), { type: "textarea", rows: 2 }),
         bindInput(t("highlights"), (exp.highlights || []).join("\n"), (v) => {
-          exp.highlights = v.split("\n").map((line) => line.trim()).filter(Boolean);
+          // Keep raw lines while typing so preview stays in sync; trim empties on save via normalize.
+          exp.highlights = v.split("\n");
         }, { type: "textarea", rows: 4 })
       );
       container.appendChild(fields);
@@ -1018,6 +1039,27 @@ function renderForm() {
   renderAllLists();
 }
 
+// Dynamic card inputs close over the content objects they were built from, so a
+// profile swap must rebuild the form; otherwise those fields keep writing to an
+// orphaned object graph and edits silently disappear until reload.
+function setProfile(profile, options = {}) {
+  state.profile = profile;
+  normalizeProfile(state.profile);
+  state.photoPreviewDirty = false;
+  if (options.render !== false) {
+    renderForm();
+  }
+}
+
+// Applied instead of swapping state.profile after a write, so in-flight edits and
+// the live input bindings survive.
+function applyServerMeta(saved) {
+  if (!saved) return;
+  if (saved.id) state.profile.id = saved.id;
+  if (saved.createdAt) state.profile.createdAt = saved.createdAt;
+  if (saved.updatedAt) state.profile.updatedAt = saved.updatedAt;
+}
+
 function collectProfileFromForm(options = {}) {
   const editingLang = normalizeProfileLang(options.language ?? els.cvLanguage?.value ?? state.profile.language);
   const content = getContentForLang(state.profile, editingLang);
@@ -1062,18 +1104,48 @@ function switchEditingLanguage(nextLang) {
 }
 
 async function updatePreview() {
-  const profile = collectProfileFromForm();
+  collectProfileFromForm();
+  const seq = ++state.previewSeq;
+
+  if (state.previewAbort) {
+    try {
+      state.previewAbort.abort();
+    } catch (_) {}
+  }
+  state.previewAbort = new AbortController();
+  const { signal } = state.previewAbort;
+
+  // Don't resend multi-MB photoBase64 on every keystroke — server reuses stored photo.
+  const payload = {
+    id: state.profile.id || state.currentId || 0,
+    name: state.profile.name,
+    language: state.profile.language,
+    personal: state.profile.personal,
+    contentTR: state.profile.contentTR,
+    contentEN: state.profile.contentEN,
+    contentLanguages: state.profile.contentLanguages,
+    photoSize: state.profile.photoSize,
+    photoBorderWidth: state.profile.photoBorderWidth,
+    photoBorderColor: state.profile.photoBorderColor,
+    photoBase64: state.photoPreviewDirty ? (state.profile.photoBase64 || "") : "",
+    useStoredPhoto: !state.photoPreviewDirty,
+  };
+
   try {
-    const html = await API.preview(profile);
+    const html = await API.preview(payload, { signal });
+    if (seq !== state.previewSeq || signal.aborted) return;
     els.previewFrame.srcdoc = html;
   } catch (error) {
+    if (error?.name === "AbortError" || signal.aborted) return;
     console.error(error);
   }
 }
 
 function schedulePreview() {
   clearTimeout(state.previewTimer);
-  state.previewTimer = setTimeout(updatePreview, 300);
+  state.previewTimer = setTimeout(() => {
+    updatePreview();
+  }, 400);
 }
 
 function markDirty() {
@@ -1195,10 +1267,7 @@ async function loadProfiles(selectId) {
   const exists = profiles.some((profile) => profile.id === targetId);
   const profile = await API.getProfile(exists ? targetId : profiles[0].id);
   state.currentId = profile.id;
-  state.profile = profile;
-  normalizeProfile(state.profile);
-
-  renderForm();
+  setProfile(profile);
   markClean();
   await updatePreview();
 }
@@ -1209,7 +1278,8 @@ async function saveProfile(options = {}) {
   state.saving = true;
   try {
     const saved = await API.updateProfile(state.currentId, profile);
-    state.profile = saved;
+    applyServerMeta(saved);
+    state.photoPreviewDirty = false;
     markClean();
     if (options.auto) {
       showToast(t("autoSaved"));
@@ -1234,11 +1304,10 @@ async function createNewProfile() {
     profile.name = `CV ${new Date().toLocaleDateString("tr-TR")}`;
     const created = await API.createProfile(profile);
     state.currentId = created.id;
-    state.profile = created;
+    setProfile(created);
     const profiles = await API.listProfiles();
     renderProfileSelect(profiles);
     els.profileSelect.value = String(created.id);
-    renderForm();
     markClean();
     await updatePreview();
     showToast(t("newProfileCreated"));
@@ -1252,12 +1321,10 @@ async function duplicateCurrentProfile() {
     try {
       const duplicated = await API.duplicateProfile(state.currentId);
       state.currentId = duplicated.id;
-      state.profile = duplicated;
-      normalizeProfile(state.profile);
+      setProfile(duplicated);
       const profiles = await API.listProfiles();
       renderProfileSelect(profiles);
       els.profileSelect.value = String(duplicated.id);
-      renderForm();
       markClean();
       await updatePreview();
       showToast(t("profileDuplicated"));
@@ -1331,9 +1398,7 @@ async function translateProfile() {
     });
 
     if (storageSupported && translated.storageSupported !== false) {
-      state.profile = translated;
-      normalizeProfile(state.profile);
-      renderForm();
+      setProfile(translated);
       markClean();
       await updatePreview();
       if (targetLang === "en") {
@@ -1448,10 +1513,13 @@ async function handleImportBackup(file) {
 async function handlePhotoUpload(file) {
   if (!file || !state.currentId) return;
   try {
+    // Only the photo is persisted by this endpoint, so keep the rest of the
+    // in-progress edits (and their dirty state) untouched.
     const updated = await API.uploadPhoto(state.currentId, file);
-    state.profile = updated;
+    state.profile.photoBase64 = updated?.photoBase64 || "";
+    applyServerMeta(updated);
+    state.photoPreviewDirty = false;
     renderPhoto();
-    markClean();
     schedulePreview();
     showToast(t("photoUploaded"));
   } catch (error) {
@@ -1479,9 +1547,7 @@ function initEventListeners() {
     }
 
     state.currentId = nextId;
-    state.profile = await API.getProfile(state.currentId);
-    normalizeProfile(state.profile);
-    renderForm();
+    setProfile(await API.getProfile(state.currentId));
     markClean();
     await updatePreview();
   });
@@ -1597,11 +1663,13 @@ function initEventListeners() {
 
   els.removePhotoBtn.addEventListener("click", async () => {
     state.profile.photoBase64 = "";
+    state.photoPreviewDirty = true;
     renderPhoto();
     schedulePreview();
     if (state.currentId) {
       try {
-        await API.updateProfile(state.currentId, collectProfileFromForm());
+        applyServerMeta(await API.updateProfile(state.currentId, collectProfileFromForm()));
+        state.photoPreviewDirty = false;
         markClean();
         showToast(t("photoRemoved"));
       } catch (error) {
@@ -1616,12 +1684,10 @@ function initEventListeners() {
 
 async function onProfileUpdated(profile) {
   state.currentId = profile.id;
-  state.profile = profile;
-  normalizeProfile(state.profile);
+  setProfile(profile);
   const profiles = await API.listProfiles();
   renderProfileSelect(profiles);
   els.profileSelect.value = String(profile.id);
-  renderForm();
   markClean();
   await updatePreview();
 }
@@ -1636,8 +1702,7 @@ async function onAIChatResult(response) {
   }
 
   state.currentId = profile.id;
-  state.profile = profile;
-  normalizeProfile(state.profile);
+  setProfile(profile, { render: false });
 
   if (response.language) {
     state.profile.language = normalizeProfileLang(response.language);

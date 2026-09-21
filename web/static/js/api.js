@@ -36,13 +36,20 @@ const API = {
     return new Date().toISOString().slice(0, 10);
   },
   async request(path, options = {}) {
-    const response = await fetch(path, {
-      headers: {
-        "Content-Type": "application/json",
-        ...(options.headers || {}),
-      },
-      ...options,
-    });
+    const { headers: optionHeaders, ...rest } = options;
+    let response;
+    try {
+      response = await fetch(path, {
+        ...rest,
+        headers: {
+          "Content-Type": "application/json",
+          ...(optionHeaders || {}),
+        },
+      });
+    } catch (error) {
+      if (error?.name === "AbortError") throw error;
+      throw error;
+    }
 
     if (!response.ok) {
       let message = "İstek başarısız";
@@ -105,12 +112,16 @@ const API = {
     });
   },
 
-  async preview(profile) {
+  async preview(profile, options = {}) {
     const response = await this.request("/api/preview", {
       method: "POST",
       body: JSON.stringify(profile),
+      signal: options.signal,
     });
-    return response.text();
+    if (typeof response?.text === "function") {
+      return response.text();
+    }
+    return String(response ?? "");
   },
 
   async downloadPDF(profile) {
